@@ -1,5 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { Navigate, useLocation } from "react-router-dom";
 import { z } from "zod";
@@ -31,10 +31,13 @@ const SIGN_OUT_TEXT = {
 } as const;
 
 export function LoginPage() {
-  const { user, login, verifyMfa, signOutReason } = useAuth();
+  const { user, login, verifyMfa, signOutReason, acknowledgeSignOut } = useAuth();
   const location = useLocation();
   const [step, setStep] = useState<"password" | "mfa">("password");
   const [formError, setFormError] = useState<string | null>(null);
+
+  // The sign-out redirect has done its job once this screen is showing; later visits to the site root see the landing page.
+  useEffect(() => acknowledgeSignOut(), [acknowledgeSignOut]);
 
   const credentials = useForm<Credentials>({ resolver: zodResolver(credentialsSchema) });
   const code = useForm<CodeForm>({ resolver: zodResolver(codeSchema) });

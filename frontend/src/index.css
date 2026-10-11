@@ -45,3 +45,20 @@ body {
 :where(a, button, input, select, textarea):focus-visible {
   @apply outline-2 outline-offset-2 outline-brand-600;
 }
+
+/* In-page links on the public landing page glide, unless the visitor prefers reduced motion. */
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+@keyframes landing-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}

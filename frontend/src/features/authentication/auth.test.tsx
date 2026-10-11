@@ -139,4 +139,80 @@ describe("signed-in navigation", () => {
     await user.click(screen.getByRole("link", { name: "Service catalog" })); // this request now gets 401
     await waitFor(() => expect(screen.getByRole("heading", { name: "Sign in" })).toBeInTheDocument());
   });
+
+  const emptyPage = { body: { count: 0, next: null, previous: null, results: [] } };
+
+  it("opens Home, not the page you signed out from, when you sign in again", async () => {
+    let signedIn = true;
+    const me = makeMe("ORG_ADMIN");
+    mockFetch({
+      "GET /auth/me/": () => (signedIn ? { body: me } : unauthenticated),
+      "GET /auth/csrf/": { status: 204 },
+      "POST /auth/logout/": () => {
+        signedIn = false;
+        return { status: 204 };
+      },
+      "POST /auth/login/": () => {
+        signedIn = true;
+        return { body: { mfa_required: false, user: me } };
+      },
+      "GET /departments/": emptyPage,
+      "GET /services/": emptyPage,
+    });
+    renderApp("/departments");
+    const user = userEvent.setup();
+    await screen.findByRole("heading", { name: "Departments" });
+    await user.click(screen.getByRole("button", { name: "Sign out" }));
+
+    await user.type(await screen.findByLabelText("Email"), "eve@acme.test");
+    await user.type(screen.getByLabelText("Password"), "a-correct-passphrase");
+    await user.click(screen.getByRole("button", { name: "Sign in" }));
+
+    expect(await screen.findByRole("heading", { name: /^Welcome/ })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Departments" })).not.toBeInTheDocument();
+  });
+
+  it("still returns to the page you were sent from when a signed-out visitor opens a protected link", async () => {
+    let signedIn = false;
+    const me = makeMe("ORG_ADMIN");
+    mockFetch({
+      "GET /auth/me/": () => (signedIn ? { body: me } : unauthenticated),
+      "GET /auth/csrf/": { status: 204 },
+      "POST /auth/login/": () => {
+        signedIn = true;
+        return { body: { mfa_required: false, user: me } };
+      },
+      "GET /departments/": emptyPage,
+    });
+    renderApp("/departments");
+    const user = userEvent.setup();
+    await user.type(await screen.findByLabelText("Email"), "eve@acme.test");
+    await user.type(screen.getByLabelText("Password"), "a-correct-passphrase");
+    await user.click(screen.getByRole("button", { name: "Sign in" }));
+    expect(await screen.findByRole("heading", { name: "Departments" })).toBeInTheDocument();
+  });
+
+  it("does not restore the old page after the session is ended by the server either", async () => {
+    let signedIn = true;
+    const me = makeMe("ORG_ADMIN");
+    mockFetch({
+      "GET /auth/me/": () => (signedIn ? { body: me } : unauthenticated),
+      "GET /auth/csrf/": { status: 204 },
+      "POST /auth/login/": () => {
+        signedIn = true;
+        return { body: { mfa_required: false, user: me } };
+      },
+      "GET /departments/": () => (signedIn ? emptyPage : unauthenticated),
+      "GET /services/": () => (signedIn ? emptyPage : unauthenticated),
+    });
+    renderApp("/departments");
+    const user = userEvent.setup();
+    await screen.findByRole("heading", { name: "Departments" });
+    signedIn = false;
+    await user.click(screen.getByRole("link", { name: "Service catalog" }));
+    await user.type(await screen.findByLabelText("Email"), "eve@acme.test");
+    await user.type(screen.getByLabelText("Password"), "a-correct-passphrase");
+    await user.click(screen.getByRole("button", { name: "Sign in" }));
+    expect(await screen.findByRole("heading", { name: /^Welcome/ })).toBeInTheDocument();
+  });
 });

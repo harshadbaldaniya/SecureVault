@@ -20,6 +20,13 @@ interface AuthValue {
   /** Local sign-out after the server ended the session (e.g. lockdown, suspension). */
   endSession: (reason: SignOutReason) => void;
   signOutReason: SignOutReason | null;
+  /**
+   * True from the moment a signed-in session ends (sign-out, expiry, lockdown) until the sign-in screen has been shown.
+   * While it is true the page the user was on is stale: the next sign-in must open Home, not that page.
+   */
+  sessionEnded: boolean;
+  /** The sign-in screen calls this once it is showing, so the flag only covers the redirect that brought the user there. */
+  acknowledgeSignOut: () => void;
   refresh: () => Promise<void>;
   /** UI convenience only. The server enforces every permission independently. */
   can: (permission: Permission) => boolean;
@@ -30,6 +37,8 @@ const AuthContext = createContext<AuthValue | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
   const [signOutReason, setSignOutReason] = useState<SignOutReason | null>(null);
+  const [sessionEnded, setSessionEnded] = useState(false);
+  const acknowledgeSignOut = useCallback(() => setSessionEnded(false), []);
 
   const meQuery = useQuery<Me | null>({
     queryKey: ME_KEY,
@@ -61,6 +70,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const endSession = useCallback(
     (reason: SignOutReason) => {
       setSignOutReason(reason);
+      setSessionEnded(true);
       resetCache(null);
     },
     [resetCache],
@@ -107,6 +117,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // always sign out locally and never surface an error from the sign-out button.
     } finally {
       setSignOutReason(null);
+      setSessionEnded(true);
       clearSession();
     }
   }, [clearSession]);
@@ -121,10 +132,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       logout,
       endSession,
       signOutReason,
+      sessionEnded,
+      acknowledgeSignOut,
       refresh,
       can: (permission) => user?.permissions.includes(permission) ?? false,
     }),
-    [user, meQuery.isPending, login, verifyMfa, logout, endSession, signOutReason, refresh],
+    [user, meQuery.isPending, login, verifyMfa, logout, endSession, signOutReason, sessionEnded, acknowledgeSignOut, refresh],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

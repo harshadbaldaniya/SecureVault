@@ -22,16 +22,24 @@ export function Forbidden() {
 
 interface Props {
   children: ReactNode;
+  /** Shown instead of redirecting when a visitor who was never signed in opens the site root. */
+  landing?: ReactNode;
   /** Hides the page for users without this permission. The API enforces it independently. */
   permission?: Permission;
 }
 
-export function ProtectedRoute({ children, permission }: Props) {
-  const { user, loading, can } = useAuth();
+export function ProtectedRoute({ children, permission, landing }: Props) {
+  const { user, loading, can, sessionEnded } = useAuth();
   const location = useLocation();
 
   if (loading) return <PageLoader label="Checking your session…" />;
-  if (!user) return <Navigate to="/login" replace state={{ from: location.pathname + location.search }} />;
+  if (!user) {
+    // A visitor who has not been signed in at all sees the public landing page at the root.
+    if (landing && !sessionEnded && location.pathname === "/") return <>{landing}</>;
+    // "from" brings someone back to a link they opened while signed out. It is not set when a session just ended (sign-out,
+    // expiry, lockdown): that page belongs to the previous session, and the next sign-in should open Home.
+    return <Navigate to="/login" replace state={sessionEnded ? undefined : { from: location.pathname + location.search }} />;
+  }
   if (user.mfa_enrollment_required && location.pathname !== "/security") return <Navigate to="/security" replace />;
   if (permission && !can(permission)) return <Forbidden />;
   return <>{children}</>;

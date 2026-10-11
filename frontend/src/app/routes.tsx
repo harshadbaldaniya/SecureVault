@@ -6,6 +6,8 @@ import { ArrowLeftIcon } from "@/components/icons";
 import { AcceptInvitePage, ForgotPasswordPage, ResetPasswordPage } from "@/features/authentication/PasswordPages";
 import { LoginPage } from "@/features/authentication/LoginPage";
 import { HomePage } from "@/features/dashboard/HomePage";
+import { GetStartedPage } from "@/features/landing/GetStartedPage";
+import { LandingPage } from "@/features/landing/LandingPage";
 import { NotificationsPage } from "@/features/notifications/NotificationsPage";
 
 import { AppLayout } from "./AppLayout";
@@ -48,6 +50,7 @@ function NotFound() {
 export function AppRoutes() {
   return (
     <Routes>
+      <Route path="/get-started" element={<GetStartedPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
@@ -55,7 +58,7 @@ export function AppRoutes() {
 
       <Route
         element={
-          <ProtectedRoute>
+          <ProtectedRoute landing={<LandingPage />}>
             <AppLayout />
           </ProtectedRoute>
         }
