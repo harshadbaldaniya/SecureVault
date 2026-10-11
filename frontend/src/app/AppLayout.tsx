@@ -97,11 +97,11 @@ export function AppLayout() {
         </button>
       </header>
 
-      <aside id="sidebar" className={`${open ? "flex" : "hidden"} max-h-[70dvh] shrink-0 flex-col overflow-y-auto overscroll-contain bg-slate-900 text-slate-200 lg:flex lg:max-h-none lg:min-h-0 lg:w-64 lg:overflow-visible`}>
+      <aside id="sidebar" className={`${open ? "flex" : "hidden"} no-scrollbar max-h-[70dvh] shrink-0 flex-col overflow-y-auto overscroll-contain bg-slate-900 text-slate-200 lg:flex lg:max-h-none lg:min-h-0 lg:w-64 lg:overflow-visible`}>
         <div className="hidden shrink-0 px-6 py-5 text-xl font-bold text-white lg:block">
           Secure<span className="text-blue-400">Vault</span>
         </div>
-        <nav aria-label="Main" className="min-h-0 flex-1 space-y-1 overflow-y-auto overflow-x-hidden overscroll-contain px-3 py-2">
+        <nav aria-label="Main" className="no-scrollbar min-h-0 flex-1 space-y-1 overflow-y-auto overflow-x-hidden overscroll-contain px-3 py-2">
           {links.map((item) => (
             <NavLink
               key={item.to}
@@ -127,7 +127,7 @@ export function AppLayout() {
         </div>
       </aside>
 
-      <main ref={mainRef} id="main" className="relative min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain p-4 sm:p-6 lg:p-8">
+      <main ref={mainRef} id="main" className="no-scrollbar relative min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain p-4 sm:p-6 lg:p-8">
         <div className="mx-auto max-w-6xl space-y-4">
           {user.lockdown && (
             <Alert tone="error">

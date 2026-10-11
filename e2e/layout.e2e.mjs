@@ -65,7 +65,9 @@ async function go(path) {
 
 describe("app shell scrolling (real browser)", () => {
   before(async () => {
-    browser = await chromium.launch({ executablePath, headless: true, args: ["--disable-gpu"] });
+    // Playwright hides scrollbars in headless Chromium by default, which would make a "no visible scrollbar" check pass
+    // vacuously; turn that off so a real scrollbar would take up space and show.
+    browser = await chromium.launch({ executablePath, headless: true, args: ["--disable-gpu"], ignoreDefaultArgs: ["--hide-scrollbars"] });
     context = await browser.newContext({ ignoreHTTPSErrors: true, baseURL: BASE, viewport: { width: 1280, height: 560 } });
     page = await context.newPage();
     page.on("console", (message) => {
@@ -187,6 +189,101 @@ describe("app shell scrolling (real browser)", () => {
     await shot("dialog");
     await page.keyboard.press("Escape");
     await dialog.waitFor({ state: "detached" });
+  });
+
+  it("no scrollbar is visible, yet wheel, keyboard and focus still scroll", async () => {
+    await page.setViewportSize({ width: 1280, height: 420 });
+    await go("/audit");
+    const info = await page.evaluate(() =>
+      Object.fromEntries(
+        ["main#main", "aside#sidebar nav"].map((query) => {
+          const el = document.querySelector(query);
+          return [query, { gutter: el.offsetWidth - el.clientWidth, scrollbarWidth: getComputedStyle(el).scrollbarWidth, canScroll: el.scrollHeight > el.clientHeight }];
+        }),
+      ),
+    );
+    for (const [query, v] of Object.entries(info)) {
+      assert.equal(v.gutter, 0, `${query}: a ${v.gutter}px scrollbar gutter is still reserved`);
+      assert.equal(v.scrollbarWidth, "none", `${query}: scrollbar-width is ${v.scrollbarWidth}`);
+      assert.ok(v.canScroll, `${query}: nothing to scroll in a 420px window; the check needs overflow`);
+    }
+    await shot("no-scrollbars-desktop");
+
+    // Mouse wheel: over the page it scrolls the page only; over the navigation it scrolls the navigation only.
+    await page.mouse.move(700, 250);
+    await page.mouse.wheel(0, 400);
+    await page.waitForFunction(() => document.querySelector("main#main").scrollTop > 0);
+    assert.equal(await page.evaluate(() => document.querySelector("aside#sidebar nav").scrollTop), 0, "the wheel over the page scrolled the navigation");
+    await page.mouse.move(100, 200);
+    await page.mouse.wheel(0, 400);
+    await page.waitForFunction(() => document.querySelector("aside#sidebar nav").scrollTop > 0);
+
+    // Keyboard: PageDown / End / PageUp / Home move the page without any scrollbar to drag.
+    await page.evaluate(() => { document.querySelector("main#main").scrollTop = 0; });
+    await page.locator("main#main h1").click();
+    await page.keyboard.press("PageDown");
+    await page.waitForFunction(() => document.querySelector("main#main").scrollTop > 100);
+    await page.keyboard.press("End");
+    await page.waitForFunction(() => { const m = document.querySelector("main#main"); return m.scrollTop >= m.scrollHeight - m.clientHeight - 2; });
+    await page.keyboard.press("Home");
+    await page.waitForFunction(() => document.querySelector("main#main").scrollTop === 0);
+
+    // Tabbing to something below the fold scrolls it into view and keeps a visible focus indicator.
+    await page.evaluate(() => { document.querySelector("main#main").scrollTop = 0; document.activeElement?.blur(); });
+    let focused = null;
+    for (let i = 0; i < 60; i += 1) {
+      await page.keyboard.press("Tab");
+      focused = await page.evaluate(() => {
+        const el = document.activeElement;
+        const inMain = Boolean(el?.closest("main#main"));
+        const r = el.getBoundingClientRect();
+        const cs = getComputedStyle(el);
+        return { inMain, visible: r.top >= 0 && r.bottom <= window.innerHeight, outline: cs.outlineStyle !== "none" && parseFloat(cs.outlineWidth) > 0, mainScrollTop: document.querySelector("main#main").scrollTop };
+      });
+      if (focused.inMain && focused.mainScrollTop > 0) break;
+    }
+    assert.ok(focused.mainScrollTop > 0, "tabbing through the page never scrolled it");
+    assert.ok(focused.visible, "the focused element is not scrolled into view");
+    assert.ok(focused.outline, "the focused element lost its focus indicator");
+    await shot("keyboard-focus-scrolled");
+  });
+
+  it("phone: no scrollbar, and touch scrolling works for the page and for the drawer", async () => {
+    const state = await context.storageState();
+    const touch = await browser.newContext({ storageState: state, baseURL: BASE, viewport: { width: 390, height: 520 }, hasTouch: true, isMobile: true });
+    const tp = await touch.newPage();
+    tp.on("pageerror", (error) => problems.push(`pageerror: ${error.message}`));
+    try {
+      await tp.goto("/audit");
+      await tp.locator("main#main h1").first().waitFor();
+      await tp.waitForLoadState("networkidle");
+      const cdp = await touch.newCDPSession(tp);
+      // A real touch drag (finger down, move, up). Touch points need ids and short pauses between moves to be delivered
+      // as a scroll gesture in headless Chromium; Input.synthesizeScrollGesture is not delivered reliably.
+      const swipeUp = async (x, y) => {
+        await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x, y, id: 1 }] });
+        for (let step = 1; step <= 12; step += 1) {
+          await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x, y: y - step * 25, id: 1 }] });
+          await tp.waitForTimeout(16);
+        }
+        await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+      };
+      const top = (query) => tp.evaluate((q) => document.querySelector(q).scrollTop, query);
+
+      await swipeUp(200, 300);
+      await tp.waitForFunction(() => document.querySelector("main#main").scrollTop > 0);
+      assert.equal(await tp.evaluate(() => window.scrollY), 0, "the window scrolled instead of the page area");
+
+      await tp.getByRole("button", { name: "Menu" }).click();
+      const gutter = await tp.evaluate(() => { const n = document.querySelector("aside#sidebar nav"); return n.offsetWidth - n.clientWidth; });
+      assert.equal(gutter, 0, "the drawer navigation reserves a scrollbar gutter");
+      const before = await top("aside#sidebar nav");
+      await swipeUp(150, 200);
+      await tp.waitForFunction((b) => document.querySelector("aside#sidebar nav").scrollTop > b, before);
+      await tp.screenshot({ path: SHOTS ? `${SHOTS}/phone-touch-drawer.png` : undefined });
+    } finally {
+      await touch.close();
+    }
   });
 
   it("produced no console errors", () => {

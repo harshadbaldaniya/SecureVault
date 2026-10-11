@@ -31,6 +31,16 @@ body {
   @apply bg-slate-50 text-slate-900 antialiased;
 }
 
+/* Scroll containers whose scrollbar is hidden but which still scroll (wheel, touch, keyboard). Used for the app shell's
+   sidebar and page area. Focus indicators and keyboard reachability are untouched. */
+@utility no-scrollbar {
+  scrollbar-width: none; /* Firefox, and current Chromium and Safari */
+  -ms-overflow-style: none; /* legacy Edge */
+  &::-webkit-scrollbar {
+    display: none; /* older Chromium and Safari */
+  }
+}
+
 /* Visible keyboard focus everywhere. */
 :where(a, button, input, select, textarea):focus-visible {
   @apply outline-2 outline-offset-2 outline-brand-600;

@@ -80,7 +80,7 @@ console error or CSP violation.
 
 `npm run test:layout` (same variables; works against the Vite dev server at `http://localhost:5173` too) checks the app shell in a real
 browser: the window never scrolls, the sidebar does not move when the page scrolls, the navigation scrolls by itself in a short window,
-the phone drawer scrolls by itself, a new page starts at the top, and nothing overflows sideways. Set `E2E_SHOTS=dir` to save screenshots.
+the phone drawer scrolls by itself, a new page starts at the top, nothing overflows sideways, and the page and sidebar scrollbars are hidden (the test browser runs with real scrollbars enabled) while the wheel, keyboard, Tab focus and touch drags still scroll. Set `E2E_SHOTS=dir` to save screenshots.
 
 ## Load-test scenarios and method
 
