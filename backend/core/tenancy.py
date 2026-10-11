@@ -4,7 +4,17 @@ Every tenant-owned queryset is filtered by the caller's organization, so an ID
 from another organization behaves exactly like an ID that does not exist (404).
 """
 
+from django.core.exceptions import ValidationError
+from django.http import Http404
 from rest_framework import serializers
+
+
+def get_in_org_or_404(queryset, organization, pk):
+    """Fetch one row of `organization` by primary key. Missing, malformed or foreign ids all become 404."""
+    try:
+        return queryset.get(pk=pk, organization=organization)
+    except (queryset.model.DoesNotExist, ValueError, ValidationError):
+        raise Http404 from None
 
 
 class OrgScopedQuerysetMixin:

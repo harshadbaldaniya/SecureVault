@@ -13,4 +13,7 @@ urlpatterns = [
     path("api/v1/", include("apps.policies.urls")),
     path("api/v1/", include("apps.audit.urls")),
     path("api/v1/vault/", include("apps.vault.urls")),
+    path("api/v1/", include("apps.sharing.urls")),
+    path("api/v1/", include("apps.access_requests.urls")),
+    path("api/v1/", include("apps.notifications.urls")),
 ]

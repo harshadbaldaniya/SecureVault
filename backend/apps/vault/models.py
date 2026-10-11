@@ -104,6 +104,10 @@ class Credential(VaultItem):
     entropy_bits = models.FloatField(default=0)
     password_changed_at = models.DateTimeField()
 
+    # Owner opt-in: list this credential's metadata in the access-request directory. Off by default
+    # so titles are not exposed to the whole organization.
+    requestable = models.BooleanField(default=False)
+
     class Meta:
         ordering = ["title", "id"]
         indexes = [
@@ -112,6 +116,31 @@ class Credential(VaultItem):
             models.Index(fields=["organization", "expires_at"]),
             GinIndex(fields=["tags"], name="vault_credential_tags_gin"),
         ]
+
+    def access_for(self, user, *, fresh: bool = False):
+        """'owner', or the ShareAccess this user holds. Memoised per instance unless fresh=True."""
+        if self.owner_id == user.id:
+            return "owner"
+        cache = self.__dict__.setdefault("_access_cache", {})
+        if fresh or user.id not in cache:
+            from apps.sharing.access import share_access  # local import: sharing depends on vault
+
+            cache[user.id] = share_access(user, self)
+        return cache[user.id]
+
+    def permissions_for(self, user, *, fresh: bool = False) -> frozenset[Action]:
+        """Owner: everything. Others: only what a live share grant (with a live ancestor chain) allows.
+
+        Roles never appear here: being an administrator does not grant access to a secret.
+        """
+        if user.organization_id != self.organization_id:
+            return frozenset()
+        access = self.access_for(user, fresh=fresh)
+        if access == "owner":
+            return ALL_ACTIONS
+        if self.is_archived:
+            return frozenset()
+        return access.actions
 
 
 class SecureNote(VaultItem):

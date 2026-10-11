@@ -16,10 +16,13 @@ from datetime import timedelta
 from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
+from rest_framework import exceptions
 
 from apps.audit import services as audit
 from apps.audit.models import AuditAction, AuditOutcome
 from apps.policies.models import SecurityPolicy, policy_for
+from apps.sharing.locks import lock_credential_access
+from apps.sharing.models import Share
 from core.access_gate import Action, authorize
 from core.crypto import DecryptionError
 from core.exceptions import ServiceError
@@ -115,10 +118,19 @@ def create_credential(*, user, password: str, **fields) -> Credential:
     return credential
 
 
+OWNER_ONLY_FIELDS = frozenset({"requestable"})
+
+
 def update_credential(*, user, credential: Credential, password: str | None = None, **fields) -> Credential:
     authorize(user, credential, Action.EDIT)
+    if credential.owner_id != user.id and OWNER_ONLY_FIELDS & fields.keys():
+        raise exceptions.PermissionDenied("Only the owner can change this setting.", code="owner_only")
     with transaction.atomic():
+        lock_credential_access(credential.pk, exclusive=False)  # same lock order as revocation: access lock, then row
         locked = Credential.objects.select_for_update().select_related("organization").get(pk=credential.pk)
+        # Re-check under the lock: a revocation may have committed after authorize() ran.
+        if Action.EDIT not in locked.permissions_for(user, fresh=True):
+            raise exceptions.PermissionDenied("Your access to this credential has ended.", code="access_revoked")
         _ensure_not_archived(locked)
         policy = policy_for(user.organization)
         for name, value in fields.items():
@@ -233,22 +245,68 @@ def purge_expired_archives(*, now=None) -> int:
 # --------------------------------------------------------------------------- reveal
 
 
+class _AccessEnded(Exception):
+    pass
+
+
+class _AlreadyConsumed(Exception):
+    pass
+
+
+VIEW_ONCE_USED = "This view-once share has already been used."
+
+
 def reveal(*, user, item: VaultItem, purpose: str) -> str:
     """Decrypt and return an item's secret after the full authorization gate.
 
     purpose "view" is recorded as REVEAL, "copy" as COPY (the client copies to the clipboard).
+    Order: consumed-view-once check -> zero-trust gate -> [row lock, re-check, decrypt, burn view-once, audit]
+    in one transaction -> return. Nothing before the burn can consume a view-once grant, and if anything after
+    it fails (e.g. the audit write) the transaction rolls the burn back.
     """
     action = Action.COPY if purpose == "copy" else Action.REVEAL
     audit_action = AuditAction.COPY if purpose == "copy" else AuditAction.REVEAL
+    shared = isinstance(item, Credential) and item.owner_id != user.id
+
+    if shared:
+        access = item.access_for(user)
+        if access.share is None and access.consumed:
+            raise ServiceError(VIEW_ONCE_USED, "view_once_consumed", status_code=410)
 
     authorize(user, item, action)
     _ensure_not_archived(item)
 
     kind = kind_of(item)
     try:
-        secret = encryption.open_sealed(
-            item.organization_id, kind, item.pk, secret_field_of(item), item.secret_ciphertext, item.key_version
-        )
+        with transaction.atomic():
+            # Shared access lock: reveals run in parallel; a revocation waits for in-flight reveals, is never
+            # starved by new ones, and is visible to every reveal that starts after it commits.
+            lock_credential_access(item.pk, exclusive=False)
+            share = None
+            if shared:
+                access = item.access_for(user, fresh=True)  # re-evaluated under the lock
+                if action not in access.actions:
+                    raise _AlreadyConsumed() if access.consumed else _AccessEnded()
+                share = access.share
+
+            secret = encryption.open_sealed(
+                item.organization_id, kind, item.pk, secret_field_of(item), item.secret_ciphertext, item.key_version
+            )
+
+            metadata = {"purpose": purpose}
+            if share is not None:
+                metadata["share_id"] = str(share.pk)
+                if share.is_view_once:
+                    # Atomic compare-and-set: of any number of concurrent reveals, exactly one updates the row.
+                    burned = Share.objects.filter(
+                        pk=share.pk, burned_at__isnull=True, revoked_at__isnull=True, expires_at__gt=timezone.now()
+                    ).update(burned_at=timezone.now())
+                    if burned != 1:
+                        raise _AlreadyConsumed()
+                    metadata["view_once"] = True
+
+            # Audit before the plaintext leaves: if the audit store is down, the reveal (and any burn) rolls back.
+            audit.record(audit_action, actor=user, target=item, target_type=kind, metadata=metadata)
     except DecryptionError:
         logger.error("Vault decryption failed for %s %s", kind, item.pk)  # ids only, never contents
         audit.record(
@@ -258,7 +316,12 @@ def reveal(*, user, item: VaultItem, purpose: str) -> str:
         raise ServiceError(
             "This secret cannot be decrypted. Contact your administrator.", "decryption_failed", status_code=500
         ) from None
-
-    # Audit before the plaintext leaves: if the audit store is down, the reveal is refused.
-    audit.record(audit_action, actor=user, target=item, target_type=kind, metadata={"purpose": purpose})
+    except _AlreadyConsumed:
+        raise ServiceError(VIEW_ONCE_USED, "view_once_consumed", status_code=410) from None
+    except _AccessEnded:
+        audit.record(
+            audit_action, actor=user, outcome=AuditOutcome.DENIED, target=item, target_type=kind,
+            reason="access_revoked", fail_silently=True,
+        )
+        raise exceptions.PermissionDenied("Your access to this credential has ended.", code="access_revoked") from None
     return secret

@@ -7,7 +7,7 @@ from django.db.models.functions import Coalesce
 from django.http import Http404
 from django.utils import timezone
 from drf_spectacular.utils import extend_schema
-from rest_framework import status, viewsets
+from rest_framework import generics, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle, UserRateThrottle
@@ -15,12 +15,16 @@ from rest_framework.throttling import ScopedRateThrottle, UserRateThrottle
 from apps.audit import services as audit
 from apps.audit.models import AuditAction, AuditOutcome
 from apps.policies.models import policy_for
+from apps.sharing import services as sharing_services
+from apps.sharing.models import Share
+from apps.sharing.serializers import ShareCreateSerializer, ShareSerializer
 from core.http import no_store
 
 from . import services
 from .models import Credential, SecureNote
 from .serializers import (
     CredentialSerializer,
+    DirectoryEntrySerializer,
     RevealedCredentialSerializer,
     RevealedNoteSerializer,
     RevealRequestSerializer,
@@ -68,7 +72,7 @@ class NoteFilter(django_filters.FilterSet):
 
 
 class VaultItemViewSet(viewsets.ModelViewSet):
-    """Shared plumbing. Visibility is scoped to the caller's own items (Phase 3 adds shared ones).
+    """Shared plumbing. Notes are visible to their owner only; credentials also to holders of a share grant.
 
     Search covers plaintext metadata only (title, username, service, tags, category).
     Secrets are never searchable.
@@ -135,6 +139,25 @@ class CredentialViewSet(VaultItemViewSet):
     search_fields = ["title", "username", "service__name", "category"]
     audit_kind = "credential"
 
+    def base_queryset(self):
+        """Own credentials, plus non-archived ones shared with the caller through an open grant.
+
+        Grants that are live, or consumed view-once grants (so the reveal endpoint can answer 410 Gone).
+        Exactly what the caller may DO is decided per request by core.access_gate (incl. the ancestor chain).
+        """
+        user = self.request.user
+        shared = Share.objects.filter(grantee=user, revoked_at__isnull=True).filter(
+            Q(burned_at__isnull=False) | Q(expires_at__gt=timezone.now())
+        )
+        visible = Q(owner=user) | (Q(pk__in=shared.values("credential_id")) & Q(archived_at__isnull=True))
+        queryset = Credential.objects.filter(organization=user.organization).filter(visible)
+        scope = self.request.query_params.get("scope") if self.action == "list" else None
+        if scope == "mine":
+            queryset = queryset.filter(owner=user)
+        elif scope == "shared":
+            queryset = queryset.exclude(owner=user)
+        return queryset
+
     def get_queryset(self):
         # reuse_count: other ACTIVE credentials of the same owner with the same blind index. Computed in
         # SQL from the keyed hashes, without decrypting anything.
@@ -188,6 +211,32 @@ class CredentialViewSet(VaultItemViewSet):
     )
     def reveal(self, request, pk=None):
         return self._reveal(request, "password")
+
+    @extend_schema(request=ShareCreateSerializer, responses={201: ShareSerializer})
+    @action(detail=True, methods=["post"])
+    def share(self, request, pk=None):
+        credential = self.get_object()
+        serializer = ShareCreateSerializer(data=request.data, context={"request": request})
+        serializer.is_valid(raise_exception=True)
+        share = sharing_services.create_share(actor=request.user, credential=credential, **serializer.validated_data)
+        return Response(ShareSerializer(share).data, status=status.HTTP_201_CREATED)
+
+
+class CredentialDirectoryView(generics.ListAPIView):
+    """Credentials whose owners opted in to access requests. Metadata only: no username, no secret."""
+
+    queryset = Credential.objects.none()  # for schema generation; get_queryset() scopes to the caller
+    serializer_class = DirectoryEntrySerializer
+    search_fields = ["title", "service__name", "category", "owner__full_name"]
+
+    def get_queryset(self):
+        user = self.request.user
+        return (
+            Credential.objects.filter(organization=user.organization, requestable=True, archived_at__isnull=True)
+            .exclude(owner=user)
+            .select_related("service", "owner")
+            .order_by("title", "id")
+        )
 
 
 class NoteViewSet(VaultItemViewSet):

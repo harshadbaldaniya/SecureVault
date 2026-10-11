@@ -358,10 +358,16 @@ def update_user(*, actor: User, user: User, changes: dict) -> User:
         metadata["status"] = {"from": old_status, "to": new_status}
     audit.record(AuditAction.EDIT, actor=actor, target=user, target_type="user", metadata=metadata)
 
-    if new_status == User.Status.DEACTIVATED:
+    if new_status == User.Status.DEACTIVATED and old_status != User.Status.DEACTIVATED:
+        from apps.sharing.services import revoke_received_grants  # local import: sharing builds on accounts
+
         Invitation.objects.filter(user=user, accepted_at__isnull=True, revoked_at__isnull=True).update(
             revoked_at=timezone.now()
         )
+        revoked = revoke_received_grants(actor=actor, user=user, reason="account_deactivated")
+        if revoked:
+            audit.record(AuditAction.REVOKE, actor=actor, target=user, target_type="user",
+                         metadata={"reason": "account_deactivated", "revoked_grants": revoked})
     if was_active and new_status != User.Status.ACTIVE:
         # Same transaction as the status change: both commit together or neither does.
         revoke_sessions([user])

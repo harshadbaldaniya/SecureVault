@@ -61,6 +61,9 @@ INSTALLED_APPS = [
     "apps.policies",
     "apps.audit",
     "apps.vault",
+    "apps.notifications",
+    "apps.sharing",
+    "apps.access_requests",
 ]
 
 MIDDLEWARE = [
@@ -223,6 +226,8 @@ SPECTACULAR_SETTINGS = {
         "UserStatusEnum": "apps.accounts.models.User.Status",
         "DepartmentStatusEnum": "apps.departments.models.Department.Status",
         "ServiceStatusEnum": "apps.services_catalog.models.ServiceCatalog.Status",
+        "SharePermissionEnum": "apps.sharing.models.Share.Permission",
+        "RequestPermissionEnum": "apps.access_requests.models.AccessRequest.Permission",
     },
 }
 

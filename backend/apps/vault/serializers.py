@@ -1,7 +1,7 @@
 import re
 
 from django.utils import timezone
-from drf_spectacular.utils import extend_schema_field
+from drf_spectacular.utils import extend_schema_field, inline_serializer
 from rest_framework import serializers
 
 from apps.services_catalog.models import ServiceCatalog
@@ -84,15 +84,52 @@ class CredentialSerializer(VaultItemSerializer):
     expires_soon = serializers.SerializerMethodField()
     password_age_days = serializers.SerializerMethodField()
     reuse_count = serializers.SerializerMethodField()
+    access = serializers.SerializerMethodField()
+    sharing = serializers.SerializerMethodField()
 
     class Meta:
         model = Credential
         fields = [
             "id", "title", "username", "service", "service_name", "secret_type", "category", "tags", "expires_at",
             "password", "entropy_bits", "strength", "is_expired", "expires_soon", "password_age_days", "reuse_count",
-            "owner_name", "permissions", "archived_at", "created_at", "updated_at", "password_changed_at",
+            "owner_name", "permissions", "access", "sharing", "requestable", "archived_at", "created_at", "updated_at",
+            "password_changed_at",
         ]
         read_only_fields = ["id", "entropy_bits", "archived_at", "created_at", "updated_at", "password_changed_at"]
+
+    def _viewer(self):
+        return self.context["request"].user
+
+    def get_access(self, credential) -> str:
+        return "owner" if credential.owner_id == self._viewer().id else "shared"
+
+    @extend_schema_field(
+        inline_serializer(
+            "CredentialSharing",
+            {
+                "permission": serializers.CharField(allow_null=True),
+                "expires_at": serializers.DateTimeField(allow_null=True),
+                "shared_by": serializers.CharField(allow_null=True),
+                "view_once": serializers.BooleanField(),
+                "consumed": serializers.BooleanField(),
+            },
+            allow_null=True,
+        )
+    )
+    def get_sharing(self, credential):
+        """For grantees: how they got access. Null for the owner."""
+        viewer = self._viewer()
+        if credential.owner_id == viewer.id:
+            return None
+        access = credential.access_for(viewer)
+        share = access.share
+        return {
+            "permission": share.permission if share else None,
+            "expires_at": share.expires_at if share else None,
+            "shared_by": share.grantor.full_name if share else None,
+            "view_once": bool(share and share.is_view_once),
+            "consumed": access.consumed,
+        }
 
     def get_strength(self, credential) -> str:
         return strength_label(credential.entropy_bits)
@@ -110,7 +147,10 @@ class CredentialSerializer(VaultItemSerializer):
         return (timezone.now() - credential.password_changed_at).days
 
     def get_reuse_count(self, credential) -> int:
-        """How many of *your other* active credentials share this password (annotated by the viewset)."""
+        """How many of *your other* active credentials share this password (annotated by the viewset).
+        Always 0 for credentials shared with you: the owner's reuse habits are not the grantee's business."""
+        if credential.owner_id != self._viewer().id:
+            return 0
         return getattr(credential, "reuse_count", 0) or 0
 
 
@@ -128,6 +168,16 @@ class SecureNoteSerializer(VaultItemSerializer):
             "archived_at", "created_at", "updated_at",
         ]
         read_only_fields = ["id", "archived_at", "created_at", "updated_at"]
+
+
+class DirectoryEntrySerializer(serializers.ModelSerializer):
+    service_name = serializers.CharField(source="service.name", read_only=True, default=None)
+    owner_name = serializers.CharField(source="owner.full_name", read_only=True)
+
+    class Meta:
+        model = Credential
+        fields = ["id", "title", "service_name", "category", "owner_name"]
+        read_only_fields = fields
 
 
 class RevealRequestSerializer(serializers.Serializer):

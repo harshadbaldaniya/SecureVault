@@ -17,16 +17,21 @@ class Perm:
     SERVICES_MANAGE = "services.manage"
     POLICIES_MANAGE = "policies.manage"
     AUDIT_VIEW = "audit.view"
+    # Incident response: revoke any grant / inspect delegation trees. Never grants access to a secret.
+    SHARES_REVOKE_ANY = "shares.revoke_any"
+    SHARES_VIEW_ALL = "shares.view_all"
 
 
 ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
     "ORG_ADMIN": frozenset(
         {
             Perm.USERS_VIEW, Perm.USERS_MANAGE, Perm.INVITATIONS_MANAGE, Perm.DEPARTMENTS_MANAGE,
-            Perm.SERVICES_MANAGE, Perm.POLICIES_MANAGE, Perm.AUDIT_VIEW,
+            Perm.SERVICES_MANAGE, Perm.POLICIES_MANAGE, Perm.AUDIT_VIEW, Perm.SHARES_REVOKE_ANY, Perm.SHARES_VIEW_ALL,
         }
     ),
-    "SEC_ADMIN": frozenset({Perm.USERS_VIEW, Perm.POLICIES_MANAGE, Perm.AUDIT_VIEW}),
+    "SEC_ADMIN": frozenset(
+        {Perm.USERS_VIEW, Perm.POLICIES_MANAGE, Perm.AUDIT_VIEW, Perm.SHARES_REVOKE_ANY, Perm.SHARES_VIEW_ALL}
+    ),
     "EMPLOYEE": frozenset(),
 }
 
