@@ -21,10 +21,12 @@ def test_login_success_returns_profile_without_password(anon, employee):
     response = login(anon, employee.email)
     assert response.status_code == 200
     body = response.json()
-    assert body["email"] == employee.email
-    assert body["role"] == "EMPLOYEE"
-    assert body["permissions"] == []
-    assert "password" not in body
+    assert body["mfa_required"] is False
+    assert body["user"]["email"] == employee.email
+    assert body["user"]["role"] == "EMPLOYEE"
+    assert body["user"]["permissions"] == []
+    assert body["user"]["mfa_enabled"] is False
+    assert "password" not in body["user"]
     assert PASSWORD not in response.content.decode()
     assert anon.get(ME).status_code == 200
 

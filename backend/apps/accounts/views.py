@@ -1,3 +1,5 @@
+import time
+
 from django.contrib.auth import authenticate, login, logout
 from django.db import transaction
 from django.utils.decorators import method_decorator
@@ -17,7 +19,7 @@ from core.exceptions import ServiceError
 from core.permissions import Perm, requires
 from core.tenancy import OrgScopedQuerysetMixin
 
-from . import services
+from . import mfa, services
 from .models import Invitation, User
 from .serializers import (
     AcceptInvitationSerializer,
@@ -25,10 +27,56 @@ from .serializers import (
     InvitationCreateSerializer,
     InvitationLinkSerializer,
     InvitationSerializer,
+    LoginResultSerializer,
     LoginSerializer,
     MeSerializer,
+    MfaCodeSerializer,
+    PasswordChangeSerializer,
+    PasswordResetConfirmSerializer,
+    PasswordResetRequestSerializer,
+    ReauthSerializer,
+    RecoveryCodesSerializer,
+    ResetLinkSerializer,
+    TotpSetupSerializer,
     UserAdminSerializer,
 )
+
+MFA_PENDING_KEY = "mfa_pending"
+MFA_PENDING_SECONDS = 300
+MFA_MAX_ATTEMPTS = 5
+LOCKED_MESSAGE = "Too many failed sign-in attempts. Try again later."
+
+
+def no_store(response: Response) -> Response:
+    """For responses carrying one-time secrets (TOTP secret, recovery codes, reset links)."""
+    response["Cache-Control"] = "no-store"
+    return response
+
+
+def audit_login_failure(email: str, reason: str) -> None:
+    # Attributed to the account's organization when the email exists, otherwise to the global chain.
+    # The attempted email is recorded as the target; passwords and codes never are.
+    known = User.objects.filter(email__iexact=email).select_related("organization").first()
+    audit.record(
+        AuditAction.LOGIN,
+        outcome=AuditOutcome.FAILURE,
+        organization=known.organization if known else None,
+        target_type="user",
+        target_id=str(known.pk) if known else "",
+        target_label=email.lower(),
+        reason=reason,
+        fail_silently=True,
+    )
+
+
+def complete_login(request, user: User, method: str | None) -> Response:
+    services.clear_login_failures(user.email)
+    with transaction.atomic():
+        login(request, user, backend="django.contrib.auth.backends.ModelBackend")  # rotates session + CSRF
+        audit.record(AuditAction.LOGIN, actor=user, target=user, target_type="user",
+                     metadata={"second_factor": method} if method else None)
+    return Response({"mfa_required": False, "user": MeSerializer(user).data})
+
 
 # --------------------------------------------------------------------------- authentication
 
@@ -48,12 +96,14 @@ class CsrfView(APIView):
 @method_decorator(csrf_protect, name="dispatch")  # login CSRF: DRF skips CSRF for anonymous requests
 @method_decorator(sensitive_post_parameters("password"), name="dispatch")
 class LoginView(APIView):
+    """Step 1: password. If the user has MFA, only a short-lived pending state is created."""
+
     permission_classes = [AllowAny]
     authentication_classes = []
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = "login"
 
-    @extend_schema(request=LoginSerializer, responses={200: MeSerializer})
+    @extend_schema(request=LoginSerializer, responses={200: LoginResultSerializer})
     def post(self, request):
         serializer = LoginSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -61,42 +111,73 @@ class LoginView(APIView):
         password = serializer.validated_data["password"]
 
         if services.is_login_locked(email):
-            self._audit_failure(email, "locked")
-            raise ServiceError(
-                "Too many failed sign-in attempts. Try again later.", "login_locked", status_code=429
-            )
+            audit_login_failure(email, "locked")
+            raise ServiceError(LOCKED_MESSAGE, "login_locked", status_code=429)
 
         user = authenticate(request, username=email, password=password)
         if user is None or user.organization.status != "ACTIVE":
             services.record_login_failure(email)
-            self._audit_failure(email, "invalid_credentials")
+            audit_login_failure(email, "invalid_credentials")
             # One message for unknown email, wrong password and inactive account (no enumeration).
             raise ServiceError("Invalid email or password.", "invalid_credentials")
 
-        services.clear_login_failures(email)
-        with transaction.atomic():
-            login(request, user)  # rotates the session key and CSRF token
-            audit.record(AuditAction.LOGIN, actor=user, target=user, target_type="user")
-        return Response(MeSerializer(user).data)
+        if mfa.has_confirmed_totp(user):
+            request.session.cycle_key()  # fresh anonymous session to hold the pending state
+            request.session[MFA_PENDING_KEY] = {
+                "user_id": str(user.pk),
+                "expires": time.time() + MFA_PENDING_SECONDS,
+                "attempts": 0,
+            }
+            return Response({"mfa_required": True, "user": None})
+        return complete_login(request, user, None)
 
-    @staticmethod
-    def _audit_failure(email: str, reason: str) -> None:
-        # Attributed to the account's organization when the email exists, otherwise to the global chain.
-        # The attempted email is recorded as the target; the password never is.
-        known = User.objects.filter(email__iexact=email).select_related("organization").first()
-        audit.record(
-            AuditAction.LOGIN,
-            outcome=AuditOutcome.FAILURE,
-            organization=known.organization if known else None,
-            target_type="user",
-            target_id=str(known.pk) if known else "",
-            target_label=email.lower(),
-            reason=reason,
-            fail_silently=True,
-        )
+
+@method_decorator(csrf_protect, name="dispatch")
+@method_decorator(sensitive_post_parameters("code"), name="dispatch")
+class MfaVerifyView(APIView):
+    """Step 2: TOTP or recovery code for the pending sign-in."""
+
+    permission_classes = [AllowAny]
+    authentication_classes = []
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "login"
+
+    @extend_schema(request=MfaCodeSerializer, responses={200: LoginResultSerializer})
+    def post(self, request):
+        serializer = MfaCodeSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        pending = request.session.get(MFA_PENDING_KEY)
+        user = None
+        if pending and pending["expires"] > time.time():
+            user = User.objects.select_related("organization").filter(pk=pending["user_id"]).first()
+        if user is None or not user.is_active or user.organization.status != "ACTIVE":
+            request.session.pop(MFA_PENDING_KEY, None)
+            raise ServiceError("Your sign-in attempt expired. Sign in again.", "mfa_session_expired")
+
+        if services.is_login_locked(user.email):
+            request.session.pop(MFA_PENDING_KEY, None)
+            audit_login_failure(user.email, "locked")
+            raise ServiceError(LOCKED_MESSAGE, "login_locked", status_code=429)
+
+        method = mfa.verify_second_factor(user, serializer.validated_data["code"])
+        if method is None:
+            pending["attempts"] += 1
+            if pending["attempts"] >= MFA_MAX_ATTEMPTS:
+                request.session.pop(MFA_PENDING_KEY, None)
+            else:
+                request.session[MFA_PENDING_KEY] = pending
+            services.record_login_failure(user.email)
+            audit_login_failure(user.email, "invalid_mfa_code")
+            raise ServiceError("Invalid verification code.", "invalid_mfa_code")
+
+        request.session.pop(MFA_PENDING_KEY, None)
+        return complete_login(request, user, method)
 
 
 class LogoutView(APIView):
+    mfa_exempt = True
+
     @extend_schema(request=None, responses={204: None})
     def post(self, request):
         with transaction.atomic():
@@ -106,6 +187,8 @@ class LogoutView(APIView):
 
 
 class MeView(APIView):
+    mfa_exempt = True
+
     @extend_schema(responses={200: MeSerializer})
     def get(self, request):
         return Response(MeSerializer(request.user).data)
@@ -129,6 +212,102 @@ class AcceptInvitationView(APIView):
         return Response({"detail": "Account activated. You can now sign in."})
 
 
+# --------------------------------------------------------------------------- MFA management
+
+
+class TotpSetupView(APIView):
+    mfa_exempt = True  # must stay reachable when the policy forces enrolment
+
+    @extend_schema(request=None, responses={200: TotpSetupSerializer})
+    def post(self, request):
+        secret, uri = mfa.begin_totp_setup(request.user)
+        return no_store(Response({"secret": secret, "otpauth_uri": uri}))
+
+
+@method_decorator(sensitive_post_parameters("code"), name="dispatch")
+class TotpConfirmView(APIView):
+    mfa_exempt = True
+
+    @extend_schema(request=MfaCodeSerializer, responses={200: RecoveryCodesSerializer})
+    def post(self, request):
+        serializer = MfaCodeSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        codes = mfa.confirm_totp(request.user, serializer.validated_data["code"])
+        # Sessions opened before MFA existed never passed a second factor: end them.
+        services.revoke_sessions([request.user], keep_session_key=request.session.session_key)
+        return no_store(Response({"recovery_codes": codes}))
+
+
+@method_decorator(sensitive_post_parameters("password", "code"), name="dispatch")
+class TotpDisableView(APIView):
+    @extend_schema(request=ReauthSerializer, responses={204: None})
+    def post(self, request):
+        serializer = ReauthSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        mfa.disable_totp(request.user, **serializer.validated_data)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+@method_decorator(sensitive_post_parameters("password", "code"), name="dispatch")
+class RecoveryCodesView(APIView):
+    @extend_schema(request=ReauthSerializer, responses={200: RecoveryCodesSerializer})
+    def post(self, request):
+        serializer = ReauthSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        codes = mfa.regenerate_recovery_codes(request.user, **serializer.validated_data)
+        return no_store(Response({"recovery_codes": codes}))
+
+
+# --------------------------------------------------------------------------- passwords
+
+
+@method_decorator(sensitive_post_parameters("current_password", "new_password"), name="dispatch")
+class PasswordChangeView(APIView):
+    @extend_schema(request=PasswordChangeSerializer, responses={204: None})
+    def post(self, request):
+        serializer = PasswordChangeSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        services.change_password(request, **serializer.validated_data)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class PasswordResetRequestView(APIView):
+    permission_classes = [AllowAny]
+    authentication_classes = []
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "password_reset"
+
+    @extend_schema(request=PasswordResetRequestSerializer, responses={202: DetailSerializer})
+    def post(self, request):
+        serializer = PasswordResetRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        services.request_password_reset(serializer.validated_data["email"])
+        # Identical answer whether or not the account exists.
+        return Response(
+            {"detail": "If an account exists for that email, a reset link has been sent."},
+            status=status.HTTP_202_ACCEPTED,
+        )
+
+
+@method_decorator(csrf_protect, name="dispatch")
+@method_decorator(sensitive_post_parameters("password", "token"), name="dispatch")
+class PasswordResetConfirmView(APIView):
+    permission_classes = [AllowAny]
+    authentication_classes = []
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "password_reset"
+
+    @extend_schema(request=PasswordResetConfirmSerializer, responses={200: DetailSerializer})
+    def post(self, request):
+        serializer = PasswordResetConfirmSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        services.confirm_password_reset(
+            raw_token=serializer.validated_data["token"], password=serializer.validated_data["password"]
+        )
+        return Response({"detail": "Password updated. Sign in with your new password."})
+
+
 # --------------------------------------------------------------------------- administration
 
 
@@ -140,7 +319,7 @@ class UserViewSet(
 
     queryset = User.objects.select_related("department")
     serializer_class = UserAdminSerializer
-    http_method_names = ["get", "patch", "head", "options"]
+    http_method_names = ["get", "patch", "post", "head", "options"]
     filterset_fields = ["role", "status", "department"]
     search_fields = ["full_name", "email"]
     ordering_fields = ["full_name", "email", "created_at", "last_login"]
@@ -153,6 +332,18 @@ class UserViewSet(
         serializer.instance = services.update_user(
             actor=self.request.user, user=serializer.instance, changes=serializer.validated_data
         )
+
+    @extend_schema(request=None, responses={204: None})
+    @action(detail=True, methods=["post"], url_path="reset-mfa")
+    def reset_mfa(self, request, pk=None):
+        mfa.admin_reset_mfa(actor=request.user, user=self.get_object())
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @extend_schema(request=None, responses={201: ResetLinkSerializer})
+    @action(detail=True, methods=["post"], url_path="password-reset-link")
+    def password_reset_link(self, request, pk=None):
+        url = services.issue_admin_reset_link(actor=request.user, user=self.get_object())
+        return no_store(Response({"reset_url": url}, status=status.HTTP_201_CREATED))
 
 
 class InvitationViewSet(
@@ -188,4 +379,4 @@ class InvitationViewSet(
         # It is never stored or logged. (Email delivery is a later enhancement.)
         data = InvitationSerializer(invitation).data
         data["invite_url"] = services.invitation_url(raw_token)
-        return Response(data, status=http_status)
+        return no_store(Response(data, status=http_status))

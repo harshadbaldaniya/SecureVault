@@ -17,6 +17,7 @@ venv/
 htmlcov/
 staticfiles/
 media/
+backend/var/
 
 # Node
 node_modules/

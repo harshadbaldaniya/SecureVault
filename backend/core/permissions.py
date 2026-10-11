@@ -5,6 +5,7 @@ Resource-level checks (credential shares, device trust, lockdown) are added
 by later phases on top of these; a role alone never grants access to a secret.
 """
 
+from rest_framework import exceptions
 from rest_framework.permissions import SAFE_METHODS, BasePermission
 
 
@@ -40,16 +41,25 @@ def has_perm(user, *perms: str) -> bool:
 
 
 class IsActiveMember(BasePermission):
-    """Default for every endpoint: authenticated, ACTIVE user in an ACTIVE organization."""
+    """Default for every endpoint: authenticated, ACTIVE user in an ACTIVE organization.
+
+    When the organization's policy requires MFA, users who have not enrolled are refused
+    everywhere except views marked `mfa_exempt = True` (profile, logout, MFA setup).
+    """
 
     def has_permission(self, request, view) -> bool:
         user = request.user
-        return bool(
-            user
-            and user.is_authenticated
-            and user.is_active
-            and user.organization.status == "ACTIVE"
-        )
+        if not (user and user.is_authenticated and user.is_active and user.organization.status == "ACTIVE"):
+            return False
+        if not getattr(view, "mfa_exempt", False):
+            from apps.accounts.mfa import enrollment_required  # local import: avoids app-loading cycle
+
+            if enrollment_required(user):
+                raise exceptions.PermissionDenied(
+                    "Your organization requires multi-factor authentication. Set it up to continue.",
+                    code="mfa_enrollment_required",
+                )
+        return True
 
 
 def requires(*perms: str, read_open: bool = False) -> type[BasePermission]:

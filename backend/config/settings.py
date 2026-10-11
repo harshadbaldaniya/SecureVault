@@ -180,6 +180,7 @@ REST_FRAMEWORK = {
         "user": "600/min",
         "login": "10/min",
         "invitation_accept": "10/min",
+        "password_reset": "5/min",
     },
     # 0 = use REMOTE_ADDR and ignore X-Forwarded-For (which clients can forge).
     # Set to the number of trusted reverse proxies in production.
@@ -191,6 +192,21 @@ FRONTEND_URL = env("FRONTEND_URL", "http://localhost:5173").rstrip("/")
 INVITATION_TTL_HOURS = int(env("INVITATION_TTL_HOURS", "72"))
 LOGIN_LOCKOUT_THRESHOLD = 5  # failed attempts per email ...
 LOGIN_LOCKOUT_SECONDS = 15 * 60  # ... within / locked for this window
+PASSWORD_RESET_TTL_MINUTES = 30
+
+# --- Encryption keys (see core/crypto.py). Each purpose has its own keyring. ---
+MFA_ENCRYPTION_KEYS = env("SV_MFA_ENCRYPTION_KEYS", required=True)
+
+# --- Email (password reset). Dev default writes .eml files to backend/var/mail, never to logs. ---
+EMAIL_BACKEND = env("DJANGO_EMAIL_BACKEND", "django.core.mail.backends.filebased.EmailBackend")
+EMAIL_FILE_PATH = BASE_DIR / "var" / "mail"
+EMAIL_HOST = env("DJANGO_EMAIL_HOST", "localhost")
+EMAIL_PORT = int(env("DJANGO_EMAIL_PORT", "587"))
+EMAIL_HOST_USER = env("DJANGO_EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = env("DJANGO_EMAIL_HOST_PASSWORD", "")
+EMAIL_USE_TLS = env_bool("DJANGO_EMAIL_USE_TLS", True)
+EMAIL_TIMEOUT = 10
+DEFAULT_FROM_EMAIL = env("DJANGO_DEFAULT_FROM_EMAIL", "SecureVault <no-reply@securevault.local>")
 
 SPECTACULAR_SETTINGS = {
     "TITLE": "SecureVault API",

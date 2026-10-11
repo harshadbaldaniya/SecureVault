@@ -8,10 +8,12 @@ import secrets
 from datetime import timedelta
 
 from django.conf import settings
+from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.password_validation import validate_password
 from django.contrib.sessions.models import Session
 from django.core.cache import cache
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.core.mail import send_mail
 from django.db import transaction
 from django.utils import timezone
 
@@ -19,7 +21,7 @@ from apps.audit import services as audit
 from apps.audit.models import AuditAction
 from core.exceptions import ServiceError
 
-from .models import Invitation, User, UserSession
+from .models import Invitation, PasswordResetToken, User, UserSession
 
 # --------------------------------------------------------------------------- login lockout
 
@@ -66,9 +68,15 @@ def forget_session(session_key: str | None) -> None:
         UserSession.objects.filter(session_key=session_key).delete()
 
 
-def revoke_sessions(users) -> int:
-    """Delete every server-side session of `users` (a queryset or iterable). Returns live sessions killed."""
-    keys = list(UserSession.objects.filter(user__in=users).values_list("session_key", flat=True))
+def revoke_sessions(users, *, keep_session_key: str | None = None) -> int:
+    """Delete every server-side session of `users` (a queryset or iterable), optionally sparing one.
+
+    Returns the number of live sessions killed.
+    """
+    sessions = UserSession.objects.filter(user__in=users)
+    if keep_session_key:
+        sessions = sessions.exclude(session_key=keep_session_key)
+    keys = list(sessions.values_list("session_key", flat=True))
     with transaction.atomic():
         live = Session.objects.filter(session_key__in=keys, expire_date__gt=timezone.now()).count()
         Session.objects.filter(session_key__in=keys).delete()
@@ -170,13 +178,8 @@ def accept_invitation(*, raw_token: str, password: str) -> User:
     ):
         raise ServiceError(INVALID_INVITATION, "invalid_invitation")
 
-    try:
-        validate_password(password, user)
-    except DjangoValidationError as exc:
-        # Raised before anything is written, so a weak password does not consume the invitation.
-        raise ServiceError(
-            "Password does not meet the requirements.", "weak_password", details={"password": exc.messages}
-        ) from None
+    # Raised before anything is written, so a weak password does not consume the invitation.
+    _validate_new_password(password, user)
 
     user.set_password(password)
     user.status = User.Status.ACTIVE
@@ -185,6 +188,125 @@ def accept_invitation(*, raw_token: str, password: str) -> User:
     invitation.save(update_fields=["accepted_at", "updated_at"])
     audit.record(AuditAction.ACCOUNT_ACTIVATE, actor=user, target=user, target_type="user")
     return user
+
+
+# --------------------------------------------------------------------------- passwords
+
+INVALID_RESET = "This password reset link is invalid or has expired."
+
+
+def _issue_reset_token(user: User, issued_by: User | None) -> str:
+    now = timezone.now()
+    # Only the newest link works: issuing a new one retires any older unused links.
+    PasswordResetToken.objects.filter(user=user, used_at__isnull=True).update(used_at=now)
+    raw_token = secrets.token_urlsafe(32)
+    PasswordResetToken.objects.create(
+        user=user,
+        issued_by=issued_by,
+        token_hash=hash_token(raw_token),
+        expires_at=now + timedelta(minutes=settings.PASSWORD_RESET_TTL_MINUTES),
+    )
+    return raw_token
+
+
+def password_reset_url(raw_token: str) -> str:
+    return f"{settings.FRONTEND_URL}/reset-password#token={raw_token}"
+
+
+@transaction.atomic
+def request_password_reset(email: str) -> None:
+    """Self-service reset. Callers must answer identically whether or not the account exists."""
+    user = (
+        User.objects.select_related("organization")
+        .filter(email__iexact=email.strip(), status=User.Status.ACTIVE, organization__status="ACTIVE")
+        .first()
+    )
+    if user is None:
+        audit.record(
+            AuditAction.PASSWORD_RESET_REQUEST, outcome="FAILURE", target_type="user",
+            target_label=email.strip().lower()[:254], reason="unknown_or_inactive", fail_silently=True,
+        )
+        return
+    raw_token = _issue_reset_token(user, issued_by=None)
+    audit.record(AuditAction.PASSWORD_RESET_REQUEST, organization=user.organization, target=user, target_type="user")
+    link = password_reset_url(raw_token)
+    # Sent only after the transaction commits, so a rolled-back request never emails a dead link.
+    transaction.on_commit(
+        lambda: send_mail(
+            "SecureVault password reset",
+            f"Use this link within {settings.PASSWORD_RESET_TTL_MINUTES} minutes to choose a new password:\n\n"
+            f"{link}\n\nIf you did not ask for this, ignore this email.",
+            None,
+            [user.email],
+        )
+    )
+
+
+@transaction.atomic
+def issue_admin_reset_link(*, actor: User, user: User) -> str:
+    """Admin-assisted recovery: returns a one-time link for out-of-band delivery."""
+    if actor.pk == user.pk:
+        raise ServiceError("Use password change for your own account.", "self_change")
+    if user.status != User.Status.ACTIVE:
+        raise ServiceError("Only active users can reset their password.", "invalid_status")
+    raw_token = _issue_reset_token(user, issued_by=actor)
+    audit.record(AuditAction.PASSWORD_RESET_REQUEST, actor=actor, target=user, target_type="user",
+                 metadata={"issued_by_admin": True})
+    return password_reset_url(raw_token)
+
+
+@transaction.atomic
+def confirm_password_reset(*, raw_token: str, password: str) -> User:
+    try:
+        token = (
+            PasswordResetToken.objects.select_for_update(of=("self",))
+            .select_related("user__organization")
+            .get(token_hash=hash_token(raw_token))
+        )
+    except PasswordResetToken.DoesNotExist:
+        raise ServiceError(INVALID_RESET, "invalid_reset_token") from None
+
+    user = token.user
+    if not token.is_usable or user.status != User.Status.ACTIVE or user.organization.status != "ACTIVE":
+        raise ServiceError(INVALID_RESET, "invalid_reset_token")
+    _validate_new_password(password, user)
+
+    user.set_password(password)
+    user.save(update_fields=["password", "updated_at"])
+    PasswordResetToken.objects.filter(user=user, used_at__isnull=True).update(used_at=timezone.now())
+    killed = revoke_sessions([user])
+    clear_login_failures(user.email)
+    audit.record(AuditAction.PASSWORD_RESET, actor=user, target=user, target_type="user",
+                 metadata={"sessions_revoked": killed})
+    return user
+
+
+@transaction.atomic
+def change_password(request, *, current_password: str, new_password: str) -> None:
+    user = request.user
+    if not user.check_password(current_password):
+        raise ServiceError("Current password is incorrect.", "invalid_password")
+    _validate_new_password(new_password, user)
+
+    user.set_password(new_password)
+    user.save(update_fields=["password", "updated_at"])
+    # Keep this browser signed in (Django rotates the session key), end every other session.
+    old_key = request.session.session_key
+    update_session_auth_hash(request, user)
+    forget_session(old_key)
+    record_session(request, user)
+    killed = revoke_sessions([user], keep_session_key=request.session.session_key)
+    audit.record(AuditAction.PASSWORD_CHANGE, actor=user, target=user, target_type="user",
+                 metadata={"other_sessions_revoked": killed})
+
+
+def _validate_new_password(password: str, user: User) -> None:
+    try:
+        validate_password(password, user)
+    except DjangoValidationError as exc:
+        raise ServiceError(
+            "Password does not meet the requirements.", "weak_password", details={"password": exc.messages}
+        ) from None
 
 
 # --------------------------------------------------------------------------- user administration

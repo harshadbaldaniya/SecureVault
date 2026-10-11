@@ -6,6 +6,7 @@ from apps.organizations.models import Organization
 from core.permissions import permissions_for
 from core.tenancy import OrgScopedPrimaryKeyRelatedField
 
+from . import mfa
 from .models import Invitation, User
 
 
@@ -25,15 +26,69 @@ class MeSerializer(serializers.ModelSerializer):
     organization = OrganizationBriefSerializer(read_only=True)
     department = DepartmentBriefSerializer(read_only=True, allow_null=True)
     permissions = serializers.SerializerMethodField()
+    mfa_enabled = serializers.SerializerMethodField()
+    mfa_enrollment_required = serializers.SerializerMethodField()
 
     class Meta:
         model = User
-        fields = ["id", "email", "full_name", "role", "status", "organization", "department", "permissions"]
+        fields = [
+            "id", "email", "full_name", "role", "status", "organization", "department", "permissions",
+            "mfa_enabled", "mfa_enrollment_required",
+        ]
 
     @extend_schema_field(serializers.ListField(child=serializers.CharField()))
     def get_permissions(self, user):
         # For UI only (showing/hiding controls). The server re-checks every request.
         return sorted(permissions_for(user))
+
+    def get_mfa_enabled(self, user) -> bool:
+        return mfa.has_confirmed_totp(user)
+
+    def get_mfa_enrollment_required(self, user) -> bool:
+        return mfa.enrollment_required(user)
+
+
+class LoginResultSerializer(serializers.Serializer):
+    """`user` is null while a second factor is still required."""
+
+    mfa_required = serializers.BooleanField()
+    user = MeSerializer(allow_null=True)
+
+
+class MfaCodeSerializer(serializers.Serializer):
+    code = serializers.CharField(max_length=32, write_only=True)
+
+
+class ReauthSerializer(serializers.Serializer):
+    password = serializers.CharField(max_length=256, trim_whitespace=False, write_only=True)
+    code = serializers.CharField(max_length=32, write_only=True)
+
+
+class TotpSetupSerializer(serializers.Serializer):
+    secret = serializers.CharField()
+    otpauth_uri = serializers.CharField()
+
+
+class RecoveryCodesSerializer(serializers.Serializer):
+    recovery_codes = serializers.ListField(child=serializers.CharField())
+
+
+class PasswordChangeSerializer(serializers.Serializer):
+    current_password = serializers.CharField(max_length=256, trim_whitespace=False, write_only=True)
+    new_password = serializers.CharField(max_length=256, trim_whitespace=False, write_only=True)
+
+
+class PasswordResetRequestSerializer(serializers.Serializer):
+    email = serializers.EmailField(max_length=254)
+
+
+class PasswordResetConfirmSerializer(serializers.Serializer):
+    token = serializers.CharField(max_length=128, write_only=True)
+    password = serializers.CharField(max_length=256, trim_whitespace=False, write_only=True)
+
+
+class ResetLinkSerializer(serializers.Serializer):
+    reset_url = serializers.CharField()
 
 
 class LoginSerializer(serializers.Serializer):

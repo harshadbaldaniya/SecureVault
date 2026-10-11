@@ -103,6 +103,52 @@ class UserSession(models.Model):
         return f"Session of {self.user_id} since {self.created_at:%Y-%m-%d %H:%M}"
 
 
+class TOTPDevice(models.Model):
+    """A user's authenticator app. The shared secret is stored AES-256-GCM encrypted."""
+
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="totp_device")
+    secret_encrypted = models.CharField(max_length=200)
+    confirmed_at = models.DateTimeField(null=True, blank=True)
+    # Highest 30-second time step accepted so far; older or equal steps are replays.
+    last_used_step = models.BigIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self) -> str:
+        return f"TOTP for {self.user_id} ({'confirmed' if self.confirmed_at else 'pending'})"
+
+
+class RecoveryCode(models.Model):
+    """Single-use MFA fallback code; only its SHA-256 hash is stored (codes carry 80 bits of entropy)."""
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="recovery_codes")
+    code_hash = models.CharField(max_length=64)
+    used_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["user", "code_hash"], name="recovery_code_unique")]
+
+    def __str__(self) -> str:
+        return f"Recovery code for {self.user_id}"
+
+
+class PasswordResetToken(TimeStampedModel):
+    """Single-use, short-lived password reset token; only its SHA-256 hash is stored."""
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="password_reset_tokens")
+    issued_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name="+")
+    token_hash = models.CharField(max_length=64, unique=True)
+    expires_at = models.DateTimeField()
+    used_at = models.DateTimeField(null=True, blank=True)
+
+    def __str__(self) -> str:
+        return f"Password reset for {self.user_id}"
+
+    @property
+    def is_usable(self) -> bool:
+        return self.used_at is None and self.expires_at > timezone.now()
+
+
 class Invitation(TimeStampedModel):
     """Single-use, expiring activation link for an INVITED user.
 
