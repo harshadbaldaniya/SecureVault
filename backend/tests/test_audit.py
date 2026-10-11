@@ -208,3 +208,22 @@ def test_shared_action_list_matches_the_backend():
     """The UI's action filters come from shared/audit-actions.json; a new action must be added there too."""
     shared = Path(__file__).resolve().parents[2] / "shared" / "audit-actions.json"
     assert json.loads(shared.read_text(encoding="utf-8")) == list(AuditAction.values)
+
+
+def test_verify_audit_chain_command_reports_ok_and_fails_loudly_on_tampering(admin):
+    from io import StringIO
+
+    from django.core.management import call_command
+    from django.core.management.base import CommandError
+
+    for i in range(3):
+        audit.record(AuditAction.EDIT, actor=admin, metadata={"n": i})
+    out = StringIO()
+    call_command("verify_audit_chain", stdout=out)
+    assert "OK (" in out.getvalue() and "BROKEN" not in out.getvalue()
+
+    tamper("UPDATE audit_auditlog SET reason = 'edited' WHERE sequence = 2")
+    out = StringIO()
+    with pytest.raises(CommandError, match="failed verification"):
+        call_command("verify_audit_chain", stdout=out)
+    assert "BROKEN at sequence 2" in out.getvalue()

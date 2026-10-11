@@ -360,3 +360,13 @@ def test_people_directory_lists_active_colleagues_only(client_for, people, make_
     }
     assert {"Bob", "Carol", "Dave"} <= names
     assert people.owner.full_name not in names and "Gone" not in names and other_admin.full_name not in names
+
+
+def test_share_expiry_command_reports_what_it_notified(client_for, people, cred):
+    from io import StringIO
+
+    from django.core.management import call_command
+
+    out = StringIO()
+    call_command("process_share_expiry", stdout=out)
+    assert out.getvalue().startswith("Expiring-soon notices: ")

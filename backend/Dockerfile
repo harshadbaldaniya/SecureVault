@@ -17,7 +17,10 @@ COPY requirements.txt ./
 RUN pip install -r requirements.txt
 
 # Run as an unprivileged user.
-RUN useradd --create-home --uid 10001 appuser
+# /app/var/mail is where development email is written (production uses SMTP).
+RUN useradd --create-home --uid 10001 appuser \
+    && mkdir -p /app/var/mail \
+    && chown -R appuser:appuser /app/var
 
 
 FROM base AS prod
