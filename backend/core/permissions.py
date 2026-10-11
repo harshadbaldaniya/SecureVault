@@ -23,12 +23,13 @@ class Perm:
     DEVICES_MANAGE = "devices.manage"
     ALERTS_MANAGE = "alerts.manage"
     LOCKDOWN_MANAGE = "lockdown.manage"
+    REPORTS_VIEW = "reports.view"
 
 
 _SECURITY_OPERATIONS = frozenset(
     {
         Perm.AUDIT_VIEW, Perm.SHARES_REVOKE_ANY, Perm.SHARES_VIEW_ALL, Perm.DEVICES_MANAGE, Perm.ALERTS_MANAGE,
-        Perm.LOCKDOWN_MANAGE,
+        Perm.LOCKDOWN_MANAGE, Perm.REPORTS_VIEW,
     }
 )
 

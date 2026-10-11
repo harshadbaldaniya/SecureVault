@@ -68,6 +68,7 @@ INSTALLED_APPS = [
     "apps.devices",  # device trust (6), anomaly policy (7)
     "apps.lockdown",  # lockdown (8)
     "apps.imports",
+    "apps.reports",
 ]
 
 MIDDLEWARE = [
@@ -179,6 +180,8 @@ REST_FRAMEWORK = {
     "PAGE_SIZE": 25,
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "EXCEPTION_HANDLER": "core.exceptions.api_exception_handler",
+    # `?format=` is ours (report exports), not DRF's renderer override.
+    "URL_FORMAT_OVERRIDE": None,
     "DEFAULT_THROTTLE_CLASSES": [
         "rest_framework.throttling.AnonRateThrottle",
         "rest_framework.throttling.UserRateThrottle",
@@ -214,6 +217,9 @@ VAULT_ARCHIVE_RETENTION_DAYS = 30  # archived items may be purged permanently af
 IMPORT_MAX_BYTES = 2 * 1024 * 1024
 IMPORT_MAX_ROWS = 5_000
 IMPORT_SYNC_ROW_LIMIT = 200  # larger files are queued for `manage.py run_worker`
+
+# --- Reports ---
+REPORT_EXPORT_MAX_ROWS = 10_000  # per export file; larger results must be narrowed by filters
 
 # --- Email (password reset). Dev default writes .eml files to backend/var/mail, never to logs. ---
 EMAIL_BACKEND = env("DJANGO_EMAIL_BACKEND", "django.core.mail.backends.filebased.EmailBackend")

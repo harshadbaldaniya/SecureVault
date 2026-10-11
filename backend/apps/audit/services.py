@@ -131,6 +131,10 @@ def _append(*, action, actor, organization, outcome, target, target_type, target
     clean_metadata = json.loads(json.dumps(sanitize(metadata or {})))
     if len(json.dumps(clean_metadata)) > _MAX_METADATA_BYTES:
         clean_metadata = {"truncated": True}
+    # Device context, when this request's device was already identified (e.g. by the device-trust check).
+    device = getattr(ctx.request, "_sv_device", None) if ctx is not None else None
+    if device is not None and "device" not in clean_metadata:
+        clean_metadata["device"] = {"id": str(device.pk), "trust": device.trust_state}
 
     key = chain_key_for(organization)
     with transaction.atomic():
