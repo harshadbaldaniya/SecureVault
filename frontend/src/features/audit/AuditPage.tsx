@@ -1,11 +1,12 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 
 import { Alert, Badge, Button, Card, EmptyState, Field, Input, PageHeader, PageLoader, Pagination, Select, Table } from "@/components/ui";
 import { api, ApiError } from "@/services/api";
 import type { AuditEntry, ChainVerification, Page } from "@/types/api";
 
 import { AUDIT_ACTIONS } from "./actions";
+import { AuditDetails } from "./AuditDetails";
 
 const PAGE_SIZE = 25;
 const outcomeTone = { SUCCESS: "green", FAILURE: "red", DENIED: "amber" } as const;
@@ -18,7 +19,9 @@ export function AuditPage() {
   const [search, setSearch] = useState("");
   const [after, setAfter] = useState("");
   const [before, setBefore] = useState("");
-  const [expanded, setExpanded] = useState<number | null>(null);
+  // The record whose details panel is open, and the button it hangs off (one panel at a time).
+  const [open, setOpen] = useState<{ id: number; anchor: HTMLElement } | null>(null);
+  const closeDetails = useCallback(() => setOpen(null), []);
 
   const params = {
     page,
@@ -35,7 +38,7 @@ export function AuditPage() {
   });
 
   const verify = useMutation({ mutationFn: () => api.get<ChainVerification>("/audit-logs/verify/") });
-  const reset = <T,>(set: (v: T) => void) => (v: T) => { set(v); setPage(1); };
+  const reset = <T,>(set: (v: T) => void) => (v: T) => { set(v); setPage(1); closeDetails(); };
 
   return (
     <>
@@ -114,33 +117,22 @@ export function AuditPage() {
                   </td>
                   <td className="px-4 py-3 font-mono text-xs">{entry.ip_address ?? "—"}</td>
                   <td className="px-4 py-3">
-                    <Button variant="ghost" aria-expanded={expanded === entry.id} onClick={() => setExpanded(expanded === entry.id ? null : entry.id)}>
-                      {expanded === entry.id ? "Hide" : "Show"}
+                    <Button
+                      variant="ghost"
+                      aria-expanded={open?.id === entry.id}
+                      aria-haspopup="dialog"
+                      aria-controls={open?.id === entry.id ? `audit-details-${entry.id}` : undefined}
+                      aria-label={`${open?.id === entry.id ? "Hide" : "Show"} details for record #${entry.sequence}`}
+                      onClick={(event) => setOpen(open?.id === entry.id ? null : { id: entry.id, anchor: event.currentTarget })}
+                    >
+                      {open?.id === entry.id ? "Hide" : "Show"}
                     </Button>
-                    {expanded === entry.id && (
-                      <dl className="mt-2 space-y-1 text-xs text-slate-600">
-                        <div>
-                          <dt className="inline font-medium">Record: </dt>
-                          <dd className="inline">#{entry.sequence}</dd>
-                        </div>
-                        {entry.reason && (
-                          <div>
-                            <dt className="inline font-medium">Reason: </dt>
-                            <dd className="inline">{entry.reason}</dd>
-                          </div>
-                        )}
-                        <div>
-                          <dt className="inline font-medium">Request ID: </dt>
-                          <dd className="inline font-mono">{entry.request_id}</dd>
-                        </div>
-                        {Object.keys(entry.metadata).length > 0 && <pre className="overflow-x-auto rounded bg-slate-50 p-2">{JSON.stringify(entry.metadata, null, 2)}</pre>}
-                      </dl>
-                    )}
                   </td>
                 </tr>
               ))}
             </Table>
-            <Pagination page={page} pageSize={PAGE_SIZE} count={query.data.count} onPage={setPage} />
+            <Pagination page={page} pageSize={PAGE_SIZE} count={query.data.count} onPage={(next) => { closeDetails(); setPage(next); }} />
+            {open && query.data.results.find((e) => e.id === open.id) && <AuditDetails entry={query.data.results.find((e) => e.id === open.id)!} anchor={open.anchor} onClose={closeDetails} />}
           </>
         )}
       </div>

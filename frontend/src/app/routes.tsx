@@ -12,6 +12,7 @@ import { NotificationsPage } from "@/features/notifications/NotificationsPage";
 
 import { AppLayout } from "./AppLayout";
 import { ProtectedRoute } from "./ProtectedRoute";
+import { ScrollManager } from "./ScrollManager";
 
 /** Each signed-in screen is its own chunk, fetched on first visit (AppLayout shows a loader meanwhile). */
 function page<M>(load: () => Promise<M>, name: keyof M) {
@@ -49,83 +50,86 @@ function NotFound() {
 
 export function AppRoutes() {
   return (
-    <Routes>
-      <Route path="/get-started" element={<GetStartedPage />} />
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-      <Route path="/reset-password" element={<ResetPasswordPage />} />
-      <Route path="/accept-invite" element={<AcceptInvitePage />} />
+    <>
+      <ScrollManager />
+      <Routes>
+        <Route path="/get-started" element={<GetStartedPage />} />
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
+        <Route path="/accept-invite" element={<AcceptInvitePage />} />
 
-      <Route
-        element={
-          <ProtectedRoute landing={<LandingPage />}>
-            <AppLayout />
-          </ProtectedRoute>
-        }
-      >
-        <Route index element={<HomePage />} />
-        <Route path="security" element={<SecurityPage />} />
-        <Route path="vault" element={<CredentialsPage />} />
-        <Route path="vault/notes" element={<NotesPage />} />
-        <Route path="sharing" element={<SharingPage />} />
-        <Route path="access-requests" element={<AccessRequestsPage />} />
-        <Route path="notifications" element={<NotificationsPage />} />
-        <Route path="devices" element={<DevicesPage />} />
         <Route
-          path="alerts"
           element={
-            <ProtectedRoute permission="alerts.manage">
-              <AlertsPage />
+            <ProtectedRoute landing={<LandingPage />}>
+              <AppLayout />
             </ProtectedRoute>
           }
-        />
-        <Route
-          path="lockdown"
-          element={
-            <ProtectedRoute permission="lockdown.manage">
-              <LockdownPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route path="departments" element={<DepartmentsPage />} />
-        <Route path="services" element={<ServicesPage />} />
-        <Route path="policy" element={<PolicyPage />} />
-        <Route
-          path="employees"
-          element={
-            <ProtectedRoute permission="users.view">
-              <EmployeesPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="employees/import"
-          element={
-            <ProtectedRoute permission="invitations.manage">
-              <ImportsPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="reports"
-          element={
-            <ProtectedRoute permission="reports.view">
-              <ReportsPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="audit"
-          element={
-            <ProtectedRoute permission="audit.view">
-              <AuditPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route path="*" element={<NotFound />} />
-      </Route>
+        >
+          <Route index element={<HomePage />} />
+          <Route path="security" element={<SecurityPage />} />
+          <Route path="vault" element={<CredentialsPage />} />
+          <Route path="vault/notes" element={<NotesPage />} />
+          <Route path="sharing" element={<SharingPage />} />
+          <Route path="access-requests" element={<AccessRequestsPage />} />
+          <Route path="notifications" element={<NotificationsPage />} />
+          <Route path="devices" element={<DevicesPage />} />
+          <Route
+            path="alerts"
+            element={
+              <ProtectedRoute permission="alerts.manage">
+                <AlertsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="lockdown"
+            element={
+              <ProtectedRoute permission="lockdown.manage">
+                <LockdownPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route path="departments" element={<DepartmentsPage />} />
+          <Route path="services" element={<ServicesPage />} />
+          <Route path="policy" element={<PolicyPage />} />
+          <Route
+            path="employees"
+            element={
+              <ProtectedRoute permission="users.view">
+                <EmployeesPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="employees/import"
+            element={
+              <ProtectedRoute permission="invitations.manage">
+                <ImportsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="reports"
+            element={
+              <ProtectedRoute permission="reports.view">
+                <ReportsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="audit"
+            element={
+              <ProtectedRoute permission="audit.view">
+                <AuditPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route path="*" element={<NotFound />} />
+        </Route>
 
-      <Route path="/index.html" element={<Navigate to="/" replace />} />
-    </Routes>
+        <Route path="/index.html" element={<Navigate to="/" replace />} />
+      </Routes>
+    </>
   );
 }
