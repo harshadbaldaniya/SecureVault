@@ -6,7 +6,8 @@
   "type": "module",
   "scripts": {
     "test": "node --test --test-timeout=240000 ./vault.e2e.mjs",
-    "test:layout": "node --test --test-timeout=240000 ./layout.e2e.mjs"
+    "test:layout": "node --test --test-timeout=240000 ./layout.e2e.mjs",
+    "test:actions": "node --test --test-timeout=240000 ./actions.e2e.mjs"
   },
   "devDependencies": {
     "playwright-core": "1.56.1"

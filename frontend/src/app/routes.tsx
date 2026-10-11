@@ -1,6 +1,8 @@
 import { lazy, type ComponentType } from "react";
-import { Link, Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes } from "react-router-dom";
 
+import { LinkButton } from "@/components/ui";
+import { ArrowLeftIcon } from "@/components/icons";
 import { AcceptInvitePage, ForgotPasswordPage, ResetPasswordPage } from "@/features/authentication/PasswordPages";
 import { LoginPage } from "@/features/authentication/LoginPage";
 import { HomePage } from "@/features/dashboard/HomePage";
@@ -35,9 +37,10 @@ function NotFound() {
     <div className="mx-auto max-w-md py-16 text-center">
       <p className="text-5xl font-bold text-slate-300">404</p>
       <h1 className="mt-4 text-xl font-semibold">Page not found</h1>
-      <Link to="/" className="mt-6 inline-block text-sm font-medium text-brand-700 hover:underline">
+      <LinkButton to="/" className="mt-6">
+        <ArrowLeftIcon />
         Back to home
-      </Link>
+      </LinkButton>
     </div>
   );
 }

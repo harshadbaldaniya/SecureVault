@@ -1,7 +1,6 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
 
-import { PageHeader } from "@/components/ui";
+import { PageHeader, LinkButton } from "@/components/ui";
 import { useAuth } from "@/features/authentication/AuthContext";
 
 import { EmployeeDirectory } from "./EmployeeDirectory";
@@ -19,9 +18,7 @@ export function EmployeesPage() {
         description="People in your organization. New employees join through single-use invitations."
         actions={
           canInvite && (
-            <Link to="/employees/import" className="inline-flex min-h-10 items-center rounded-md bg-white px-4 text-sm font-medium text-slate-800 ring-1 ring-slate-300 hover:bg-slate-50">
-              Import from Excel
-            </Link>
+            <LinkButton to="/employees/import">Import from Excel</LinkButton>
           )
         }
       />

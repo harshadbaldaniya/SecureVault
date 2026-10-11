@@ -1,10 +1,10 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { Link, Navigate, useLocation } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 import { z } from "zod";
 
-import { Alert, Button, Field, Input } from "@/components/ui";
+import { Alert, Button, Field, Input, TextLink } from "@/components/ui";
 import { ApiError } from "@/services/api";
 
 import { AuthLayout } from "./AuthLayout";
@@ -102,9 +102,7 @@ export function LoginPage() {
           Sign in
         </Button>
         <p className="text-center text-sm">
-          <Link to="/forgot-password" className="text-brand-700 hover:underline">
-            Forgot your password?
-          </Link>
+          <TextLink to="/forgot-password">Forgot your password?</TextLink>
         </p>
       </form>
     </AuthLayout>

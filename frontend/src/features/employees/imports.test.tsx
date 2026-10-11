@@ -48,8 +48,15 @@ describe("employee import", () => {
     renderApp("/employees/import");
     await screen.findByText("No imports yet");
 
+    // The native "Choose File / No file chosen" is replaced by a real button and a readable status.
+    expect(screen.getByText("No file selected")).toBeInTheDocument();
+    const template = screen.getByRole("link", { name: "Download the template" });
+    expect(template).toHaveAttribute("href", "/api/v1/imports/template/");
+    expect(template).toHaveAttribute("download");
+
     const file = new File(["PK"], "people.xlsx", { type: XLSX_TYPE });
-    await user.upload(screen.getByLabelText("Workbook to import"), file);
+    await user.upload(screen.getByLabelText("Choose file"), file);
+    expect(screen.getByText("people.xlsx")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Upload and import" }));
 
     expect(await screen.findByText(/2 of 3 employees invited/)).toBeInTheDocument();
@@ -73,7 +80,7 @@ describe("employee import", () => {
     renderApp("/employees/import");
     await screen.findByText("No imports yet");
 
-    await user.upload(screen.getByLabelText("Workbook to import"), new File(["a,b"], "people.csv", { type: "text/csv" }));
+    await user.upload(screen.getByLabelText("Choose file"), new File(["a,b"], "people.csv", { type: "text/csv" }));
     await user.click(screen.getByRole("button", { name: "Upload and import" }));
 
     expect(screen.getByRole("alert")).toHaveTextContent("Only .xlsx workbooks are accepted.");
@@ -90,7 +97,7 @@ describe("employee import", () => {
     renderApp("/employees/import");
     await screen.findByText("No imports yet");
 
-    await user.upload(screen.getByLabelText("Workbook to import"), new File(["not a zip"], "people.xlsx", { type: XLSX_TYPE }));
+    await user.upload(screen.getByLabelText("Choose file"), new File(["not a zip"], "people.xlsx", { type: XLSX_TYPE }));
     await user.click(screen.getByRole("button", { name: "Upload and import" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("The file is not a valid .xlsx workbook.");
   });

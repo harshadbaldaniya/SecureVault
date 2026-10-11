@@ -107,7 +107,7 @@ export function SharingPage() {
                   <td className="whitespace-nowrap px-4 py-3">{new Date(s.expires_at).toLocaleString()}</td>
                   <td className="px-4 py-3">
                     {s.state === "ACTIVE" && direction === "given" && (
-                      <Button variant="ghost" className="text-red-700" onClick={() => { setRevokeError(null); setRevoking(s); }} aria-label={`Revoke ${s.grantee.full_name}'s access to ${s.credential_title}`}>
+                      <Button variant="danger-ghost" onClick={() => { setRevokeError(null); setRevoking(s); }} aria-label={`Revoke ${s.grantee.full_name}'s access to ${s.credential_title}`}>
                         Revoke
                       </Button>
                     )}

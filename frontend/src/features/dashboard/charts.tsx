@@ -1,5 +1,7 @@
 import { useId, useState, type ReactNode } from "react";
 
+import { Segmented } from "@/components/ui";
+
 /*
  * Small, dependency-free chart pieces following the dataviz method:
  * one series = one color (series slot 1), thin marks (<= 24px) with a 4px rounded data end and a square
@@ -70,9 +72,15 @@ function ChartFrame({ title, caption, data, valueLabel, children }: { title: str
           </h3>
           {caption && <p className="text-xs text-slate-500">{caption}</p>}
         </div>
-        <button type="button" className="text-xs text-brand-700 underline" aria-pressed={asTable} onClick={() => setAsTable((v) => !v)}>
-          {asTable ? "Show chart" : "Show table"}
-        </button>
+        <Segmented
+          label={`${title} view`}
+          value={asTable ? "table" : "chart"}
+          options={[
+            { value: "chart", label: "Chart" },
+            { value: "table", label: "Table" },
+          ]}
+          onChange={(view) => setAsTable(view === "table")}
+        />
       </div>
       {asTable ? (
         <table className="w-full text-sm">

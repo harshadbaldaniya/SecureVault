@@ -169,12 +169,12 @@ export function DevicesPage() {
                       </Button>
                     )}
                     {isAdmin && !own && d.trust_state === "TRUSTED" && (
-                      <Button variant="ghost" className="text-red-700" onClick={() => setChanging({ device: d, operation: "suspend" })} aria-label={`Suspend ${d.name}`}>
+                      <Button variant="danger-ghost" onClick={() => setChanging({ device: d, operation: "suspend" })} aria-label={`Suspend ${d.name}`}>
                         Suspend
                       </Button>
                     )}
                     {(isAdmin || own) && d.trust_state !== "REVOKED" && (
-                      <Button variant="ghost" className="text-red-700" onClick={() => setChanging({ device: d, operation: "revoke" })} aria-label={`Revoke ${d.name}`}>
+                      <Button variant="danger-ghost" onClick={() => setChanging({ device: d, operation: "revoke" })} aria-label={`Revoke ${d.name}`}>
                         Revoke
                       </Button>
                     )}

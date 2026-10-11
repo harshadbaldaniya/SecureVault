@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 
-import { Alert, Badge, Button, Card, Dialog, EmptyState, PageHeader, PageLoader, Pagination, Table } from "@/components/ui";
+import { DownloadIcon } from "@/components/icons";
+import { Alert, Badge, Button, Card, Dialog, EmptyState, PageHeader, PageLoader, Pagination, Table, FileInput, LinkButton } from "@/components/ui";
 import { api, ApiError, apiUrl, upload } from "@/services/api";
 import type { ImportJob, Page } from "@/types/api";
 
@@ -97,18 +98,21 @@ export function ImportsPage() {
             <ul className="list-disc space-y-1 pl-5 text-sm text-slate-600">
               <li>
                 Columns: <code>email</code>, <code>full_name</code>, optional <code>department</code> (code) and <code>role</code>.{" "}
-                <a href={apiUrl("/imports/template/")} className="text-brand-700 underline">
+                <LinkButton href={apiUrl("/imports/template/")} size="sm" className="ml-1 align-middle" download>
+                  <DownloadIcon />
                   Download the template
-                </a>
+                </LinkButton>
               </li>
               <li>Everyone is invited as an Employee. Rows asking for an administrator role are refused; change roles after activation.</li>
               <li>Up to 2 MB and 5,000 rows. Larger files are processed in the background.</li>
             </ul>
             <div className="flex flex-wrap items-center gap-3">
-              <label className="text-sm">
-                <span className="sr-only">Workbook</span>
-                <input ref={fileInput} type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={(e) => setFile(e.target.files?.[0] ?? null)} className="text-sm" aria-label="Workbook to import" />
-              </label>
+              <FileInput
+                ref={fileInput}
+                accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                fileName={file?.name ?? null}
+                onFile={setFile}
+              />
               <Button type="submit" loading={send.isPending}>
                 Upload and import
               </Button>

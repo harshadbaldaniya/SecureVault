@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
-import { Link } from "react-router-dom";
 
-import { Alert, Badge, Card, PageHeader, PageLoader, Table } from "@/components/ui";
+import { DocumentIcon } from "@/components/icons";
+import { Alert, Badge, Card, PageHeader, PageLoader, Table, LinkButton, TextLink } from "@/components/ui";
 import { useAuth } from "@/features/authentication/AuthContext";
 import { STRENGTH_TEXT } from "@/features/vault/strength";
 import { api, ApiError } from "@/services/api";
@@ -21,11 +21,16 @@ export function HomePage() {
     <>
       <PageHeader title={`Welcome, ${user.full_name}`} description={`${user.organization.name}${user.department ? ` · ${user.department.name}` : ""}`} />
       {!user.mfa_enabled && (
-        <Alert tone="info" className="mb-4">
-          Two-step verification is off for your account.{" "}
-          <Link to="/security" className="font-medium underline">
-            Turn it on
-          </Link>
+        <Alert
+          tone="info"
+          className="mb-4"
+          action={
+            <LinkButton to="/security" size="sm">
+              Turn it on
+            </LinkButton>
+          }
+        >
+          Two-step verification is off for your account.
         </Alert>
       )}
       {query.isPending ? (
@@ -52,9 +57,7 @@ function DashboardBody({ data }: { data: Dashboard }) {
             label="Your credentials"
             value={me.credentials}
             hint={
-              <Link to="/vault" className="underline">
-                Open the vault
-              </Link>
+              <TextLink to="/vault">Open the vault</TextLink>
             }
           />
           <StatTile label="Shared with you" value={me.shared_with_me} hint={`You share ${me.shares_given} grant${me.shares_given === 1 ? "" : "s"}`} />
@@ -101,9 +104,9 @@ function DashboardBody({ data }: { data: Dashboard }) {
                   <StatusMark level="warning" label={`${organization.open_alerts.LOW} low`} />
                 </li>
               </ul>
-              <Link to="/alerts" className="mt-3 inline-block text-sm text-brand-700 underline">
+              <LinkButton to="/alerts" size="sm" className="mt-4">
                 Review alerts
-              </Link>
+              </LinkButton>
             </Card>
             <Card title="Device posture">
               <Meter
@@ -136,9 +139,10 @@ function DashboardBody({ data }: { data: Dashboard }) {
                 ))}
               </Table>
             )}
-            <Link to="/audit" className="mt-3 inline-block text-sm text-brand-700 underline">
+            <LinkButton to="/audit" size="sm" className="mt-4">
+              <DocumentIcon />
               Open the audit log
-            </Link>
+            </LinkButton>
           </Card>
         </section>
       )}

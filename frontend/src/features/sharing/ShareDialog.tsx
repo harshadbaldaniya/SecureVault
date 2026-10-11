@@ -25,7 +25,7 @@ export function PersonPicker({ selected, onSelect, label = "Share with" }: { sel
         <span>
           <strong>{selected.full_name}</strong> <span className="text-slate-500">{selected.email}</span>
         </span>
-        <Button variant="ghost" className="min-h-8 px-2" onClick={() => onSelect(null)}>
+        <Button variant="ghost" size="sm" onClick={() => onSelect(null)}>
           Change
         </Button>
       </div>

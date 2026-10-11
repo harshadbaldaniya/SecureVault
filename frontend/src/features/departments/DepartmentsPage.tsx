@@ -130,7 +130,7 @@ export function DepartmentsPage() {
                     <Button variant="ghost" onClick={() => setEditing(d)} aria-label={`Edit ${d.name}`}>
                       Edit
                     </Button>
-                    <Button variant="ghost" className="text-red-700" onClick={() => { setDeleteError(null); setDeleting(d); }} aria-label={`Delete ${d.name}`}>
+                    <Button variant="danger-ghost" onClick={() => { setDeleteError(null); setDeleting(d); }} aria-label={`Delete ${d.name}`}>
                       Delete
                     </Button>
                   </td>

@@ -166,7 +166,7 @@ export function InvitationsPanel() {
                     </Button>
                   )}
                   {i.state === "PENDING" && (
-                    <Button variant="ghost" className="text-red-700" onClick={() => { setActionError(null); setRevoking(i); }} aria-label={`Revoke invitation for ${i.email}`}>
+                    <Button variant="danger-ghost" onClick={() => { setActionError(null); setRevoking(i); }} aria-label={`Revoke invitation for ${i.email}`}>
                       Revoke
                     </Button>
                   )}

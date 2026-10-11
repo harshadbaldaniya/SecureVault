@@ -1,7 +1,8 @@
 import type { ReactNode } from "react";
-import { Link, Navigate, useLocation } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 
-import { PageLoader } from "@/components/ui";
+import { ArrowLeftIcon } from "@/components/icons";
+import { PageLoader, LinkButton } from "@/components/ui";
 import { useAuth } from "@/features/authentication/AuthContext";
 import type { Permission } from "@/types/api";
 
@@ -11,9 +12,10 @@ export function Forbidden() {
       <p className="text-5xl font-bold text-slate-300">403</p>
       <h1 className="mt-4 text-xl font-semibold">You do not have access to this page</h1>
       <p className="mt-2 text-sm text-slate-500">Your role does not include this area. Ask an administrator if you think this is a mistake.</p>
-      <Link to="/" className="mt-6 inline-block text-sm font-medium text-brand-700 hover:underline">
+      <LinkButton to="/" className="mt-6">
+        <ArrowLeftIcon />
         Back to home
-      </Link>
+      </LinkButton>
     </div>
   );
 }

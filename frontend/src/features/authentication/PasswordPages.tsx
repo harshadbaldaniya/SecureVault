@@ -1,10 +1,10 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { Link } from "react-router-dom";
 import { z } from "zod";
 
-import { Alert, Button, Field, Input } from "@/components/ui";
+import { ArrowLeftIcon } from "@/components/icons";
+import { Alert, Button, Field, Input, LinkButton } from "@/components/ui";
 import { api, ApiError, fieldErrors } from "@/services/api";
 
 import { AuthLayout } from "./AuthLayout";
@@ -45,9 +45,10 @@ export function ForgotPasswordPage() {
       {sent ? (
         <div className="space-y-4">
           <Alert tone="success">If an account exists for that email, a reset link has been sent. It expires in 30 minutes.</Alert>
-          <Link to="/login" className="text-sm text-brand-700 hover:underline">
+          <LinkButton to="/login" variant="secondary">
+            <ArrowLeftIcon />
             Back to sign in
-          </Link>
+          </LinkButton>
         </div>
       ) : (
         <form onSubmit={submit} noValidate className="space-y-4">
@@ -58,11 +59,10 @@ export function ForgotPasswordPage() {
           <Button type="submit" className="w-full" loading={form.formState.isSubmitting}>
             Send reset link
           </Button>
-          <p className="text-center text-sm">
-            <Link to="/login" className="text-brand-700 hover:underline">
-              Back to sign in
-            </Link>
-          </p>
+          <LinkButton to="/login" variant="secondary" className="w-full">
+            <ArrowLeftIcon />
+            Back to sign in
+          </LinkButton>
         </form>
       )}
     </AuthLayout>
@@ -97,9 +97,9 @@ function NewPasswordForm({ endpoint, token, submitLabel, successMessage }: { end
     return (
       <div className="space-y-4">
         <Alert tone="success">{successMessage}</Alert>
-        <Link to="/login" className="text-sm font-medium text-brand-700 hover:underline">
+        <LinkButton to="/login" variant="primary" className="w-full">
           Go to sign in
-        </Link>
+        </LinkButton>
       </div>
     );
   }
@@ -124,9 +124,10 @@ function MissingToken({ what }: { what: string }) {
   return (
     <div className="space-y-4">
       <Alert tone="error">This {what} link is missing or incomplete. Open the full link you were given.</Alert>
-      <Link to="/login" className="text-sm text-brand-700 hover:underline">
+      <LinkButton to="/login" variant="secondary">
+        <ArrowLeftIcon />
         Back to sign in
-      </Link>
+      </LinkButton>
     </div>
   );
 }

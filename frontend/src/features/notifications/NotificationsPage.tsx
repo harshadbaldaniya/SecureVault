@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 
-import { Alert, Badge, Button, EmptyState, PageHeader, PageLoader, Pagination } from "@/components/ui";
+import { Alert, Badge, Button, EmptyState, PageHeader, PageLoader, Pagination, TextLink } from "@/components/ui";
 import { api, ApiError } from "@/services/api";
 import type { AppNotification, Page } from "@/types/api";
 
@@ -82,12 +82,12 @@ export function NotificationsPage() {
                   <div className="flex items-center gap-2">
                     {n.priority !== "NORMAL" && <Badge tone={PRIORITY_TONE[n.priority]}>{n.priority.toLowerCase()}</Badge>}
                     {n.link && (
-                      <Link to={n.link} className="text-sm text-brand-700 hover:underline" onClick={() => !n.is_read && markRead.mutate(n.id)}>
+                      <TextLink to={n.link} className="text-sm" onClick={() => !n.is_read && markRead.mutate(n.id)}>
                         Open
-                      </Link>
+                      </TextLink>
                     )}
                     {!n.is_read && (
-                      <Button variant="ghost" className="min-h-8 px-2" onClick={() => markRead.mutate(n.id)} aria-label={`Mark "${n.title}" as read`}>
+                      <Button variant="ghost" size="sm" onClick={() => markRead.mutate(n.id)} aria-label={`Mark "${n.title}" as read`}>
                         Mark read
                       </Button>
                     )}

@@ -39,7 +39,7 @@ function Branch({ nodes, parent, onRevoke, level }: { nodes: TreeNode[]; parent:
               from {node.grantor} · until {new Date(node.expires_at).toLocaleString()}
             </span>
             {onRevoke && node.state === "ACTIVE" && (
-              <Button variant="ghost" className="min-h-8 px-2 text-red-700" onClick={() => onRevoke(node)} aria-label={`Revoke access for ${node.grantee}`}>
+              <Button variant="danger-ghost" size="sm" onClick={() => onRevoke(node)} aria-label={`Revoke access for ${node.grantee}`}>
                 Revoke
               </Button>
             )}

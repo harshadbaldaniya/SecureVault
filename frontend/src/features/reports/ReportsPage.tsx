@@ -1,7 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 
-import { Alert, Button, Card, Checkbox, Dialog, EmptyState, Field, Input, PageHeader, PageLoader, Pagination, Select, Table } from "@/components/ui";
+import { DownloadIcon } from "@/components/icons";
+import { Alert, Button, Card, Checkbox, Dialog, EmptyState, Field, Input, PageHeader, PageLoader, Pagination, Select, Table, LinkButton } from "@/components/ui";
 import { AUDIT_ACTIONS } from "@/features/audit/actions";
 import { DelegationTree } from "@/features/sharing/DelegationTree";
 import { PersonPicker } from "@/features/sharing/ShareDialog";
@@ -123,7 +124,7 @@ export function ReportsPage() {
               </div>
               <div className="flex gap-1 pb-1">
                 {[7, 30, 90].map((d) => (
-                  <Button key={d} variant="secondary" className="min-h-8 px-2 text-xs" onClick={() => { set("date_from", daysAgo(d - 1)); set("date_to", daysAgo(0)); }}>
+                  <Button key={d} variant="secondary" size="sm" onClick={() => { set("date_from", daysAgo(d - 1)); set("date_to", daysAgo(0)); }}>
                     Last {d} days
                   </Button>
                 ))}
@@ -246,9 +247,10 @@ export function ReportsPage() {
         <div className="mt-4 flex flex-wrap items-center gap-2">
           <span className="text-sm text-slate-600">Export:</span>
           {[["csv", "CSV"], ["xlsx", "Excel"], ["pdf", "PDF"]].map(([format, label]) => (
-            <a key={format} href={exportHref(format as string)} className="rounded-md px-3 py-1.5 text-sm ring-1 ring-slate-300 hover:bg-slate-50" download>
+            <LinkButton key={format} href={exportHref(format as string)} size="sm" download>
+              <DownloadIcon />
               {label}
-            </a>
+            </LinkButton>
           ))}
           <span className="text-xs text-slate-500">Exports are recorded in the audit log and capped at 10,000 rows (PDF: 2,000).</span>
         </div>
@@ -275,7 +277,7 @@ export function ReportsPage() {
                   {key === "shares" && (
                     <td className="px-4 py-2">
                       {row.credential_id && (
-                        <Button variant="ghost" className="min-h-8 px-2" onClick={() => setTreeFor(String(row.credential_id))}>
+                        <Button variant="ghost" size="sm" onClick={() => setTreeFor(String(row.credential_id))}>
                           View tree
                         </Button>
                       )}

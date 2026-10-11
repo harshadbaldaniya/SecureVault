@@ -1,8 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { Suspense, useEffect, useRef, useState } from "react";
-import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
+import { NavLink, Outlet, useLocation } from "react-router-dom";
 
-import { Alert, Button, PageLoader } from "@/components/ui";
+import { Alert, Button, PageLoader, LinkButton, TextLink } from "@/components/ui";
 import { useAuth } from "@/features/authentication/AuthContext";
 import { useDeviceRegistration } from "@/features/devices/deviceRegistration";
 import { NotificationBell } from "@/features/notifications/NotificationsPage";
@@ -130,19 +130,27 @@ export function AppLayout() {
       <main ref={mainRef} id="main" className="no-scrollbar relative min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain p-4 sm:p-6 lg:p-8">
         <div className="mx-auto max-w-6xl space-y-4">
           {user.lockdown && (
-            <Alert tone="error">
-              <strong>Emergency lockdown active</strong> ({user.lockdown.scope === "GLOBAL" ? "organization-wide" : "one account"}). Secrets cannot be revealed, copied, edited or shared by anyone until it is lifted.{" "}
-              <Link to="/lockdown" className="font-medium underline">
-                Manage lockdown
-              </Link>
+            <Alert
+              tone="error"
+              action={
+                <LinkButton to="/lockdown" size="sm">
+                  Manage lockdown
+                </LinkButton>
+              }
+            >
+              <strong>Emergency lockdown active</strong> ({user.lockdown.scope === "GLOBAL" ? "organization-wide" : "one account"}). Secrets cannot be revealed, copied, edited or shared by anyone until it is lifted.
             </Alert>
           )}
           {untrustedDevice && (
-            <Alert tone="warning">
-              This device is <strong>{device.data?.trust_state.toLowerCase()}</strong>. Your organization requires a trusted device for sensitive actions, so revealing or changing secrets is blocked here until a security administrator approves it.{" "}
-              <Link to="/devices" className="font-medium underline">
-                View devices
-              </Link>
+            <Alert
+              tone="warning"
+              action={
+                <LinkButton to="/devices" size="sm">
+                  View devices
+                </LinkButton>
+              }
+            >
+              This device is <strong>{device.data?.trust_state.toLowerCase()}</strong>. Your organization requires a trusted device for sensitive actions, so revealing or changing secrets is blocked here until a security administrator approves it.
             </Alert>
           )}
           <Suspense fallback={<PageLoader />}>
@@ -159,14 +167,14 @@ export function AppLayout() {
                 <p className="font-medium">{toast.title}</p>
                 {toast.message && <p className="mt-1 text-xs">{toast.message}</p>}
                 {toast.link && (
-                  <Link to={toast.link} className="mt-1 inline-block text-xs underline" onClick={dismissToast}>
+                  <TextLink to={toast.link} className="mt-1 inline-block text-xs" onClick={dismissToast}>
                     Open
-                  </Link>
+                  </TextLink>
                 )}
               </div>
-              <button type="button" className="text-xs underline" onClick={dismissToast}>
+              <Button variant="ghost" size="sm" onClick={dismissToast}>
                 Dismiss
-              </button>
+              </Button>
             </div>
           </Alert>
         </div>

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
-import { Alert, Badge, Button, ConfirmDialog, Dialog, EmptyState, Field, Input, PageHeader, PageLoader, Pagination, Select, Table } from "@/components/ui";
+import { Alert, Badge, Button, ConfirmDialog, Dialog, EmptyState, Field, Input, PageHeader, PageLoader, Pagination, Select, Table, TextLink } from "@/components/ui";
 import { useAuth } from "@/features/authentication/AuthContext";
 import { useDebounced } from "@/hooks/useDebounced";
 import { api, ApiError, fieldErrors } from "@/services/api";
@@ -194,9 +194,9 @@ export function ServicesPage() {
                 <td className="px-4 py-3">{categoryLabel[s.category]}</td>
                 <td className="px-4 py-3">
                   {s.base_url ? (
-                    <a href={s.base_url} target="_blank" rel="noopener noreferrer" className="text-brand-700 hover:underline">
+                    <TextLink href={s.base_url} target="_blank" rel="noopener noreferrer" className="font-normal">
                       {s.base_url}
-                    </a>
+                    </TextLink>
                   ) : (
                     "—"
                   )}
@@ -210,7 +210,7 @@ export function ServicesPage() {
                     <Button variant="ghost" onClick={() => setEditing(s)} aria-label={`Edit ${s.name}`}>
                       Edit
                     </Button>
-                    <Button variant="ghost" className="text-red-700" onClick={() => { setDeleteError(null); setDeleting(s); }} aria-label={`Delete ${s.name}`}>
+                    <Button variant="danger-ghost" onClick={() => { setDeleteError(null); setDeleting(s); }} aria-label={`Delete ${s.name}`}>
                       Delete
                     </Button>
                   </td>

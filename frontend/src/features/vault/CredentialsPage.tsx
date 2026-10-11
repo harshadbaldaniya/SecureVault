@@ -212,7 +212,7 @@ export function CredentialsPage() {
                           </Button>
                         )}
                         {can("DELETE") && (
-                          <Button variant="ghost" className="text-red-700" onClick={() => { setActionError(null); setArchiving(c); }} aria-label={`Archive ${c.title}`}>
+                          <Button variant="danger-ghost" onClick={() => { setActionError(null); setArchiving(c); }} aria-label={`Archive ${c.title}`}>
                             Archive
                           </Button>
                         )}

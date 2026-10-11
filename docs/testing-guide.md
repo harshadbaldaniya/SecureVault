@@ -82,6 +82,10 @@ console error or CSP violation.
 browser: the window never scrolls, the sidebar does not move when the page scrolls, the navigation scrolls by itself in a short window,
 the phone drawer scrolls by itself, a new page starts at the top, nothing overflows sideways, and the page and sidebar scrollbars are hidden (the test browser runs with real scrollbars enabled) while the wheel, keyboard, Tab focus and touch drags still scroll. Set `E2E_SHOTS=dir` to save screenshots.
 
+`npm run test:actions` checks the action hierarchy in a real browser (secondary buttons, the Chart/Table control, the file picker with its
+focus ring and validation, the template download, navigation, and the phone layout). Set `E2E_STATE=file` so repeated runs reuse one signed-in
+browser instead of registering a new device each time.
+
 ## Load-test scenarios and method
 
 The master requirements ask for documented scenarios and measured response times and resource use *before* claiming scalability.

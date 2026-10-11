@@ -1,39 +1,113 @@
-import { forwardRef, useEffect, useId, useRef, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from "react";
+import { forwardRef, useEffect, useId, useRef, type AnchorHTMLAttributes, type ButtonHTMLAttributes, type ComponentProps, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from "react";
+import { Link } from "react-router-dom";
+
+import { UploadIcon } from "./icons";
 
 const cx = (...parts: Array<string | false | null | undefined>) => parts.filter(Boolean).join(" ");
 
 // --------------------------------------------------------------------------- Button
 
-type Variant = "primary" | "secondary" | "danger" | "ghost";
+/*
+ * Action hierarchy
+ *   primary       the main action of a page or form (one per section)
+ *   secondary     useful supporting actions that should stay visible: back, download, open another page
+ *   ghost         low-emphasis actions inside rows and toolbars
+ *   danger        a confirmed destructive action (the confirmation button of a dialog)
+ *   danger-ghost  a destructive action offered in a row (always followed by a confirmation dialog)
+ * Genuine inline references use TextLink; switching between two views of the same data uses Segmented.
+ */
+export type ButtonVariant = "primary" | "secondary" | "danger" | "ghost" | "danger-ghost";
+export type ButtonSize = "md" | "sm";
 
-const variants: Record<Variant, string> = {
+const variants: Record<ButtonVariant, string> = {
   primary: "bg-brand-600 text-white hover:bg-brand-700 disabled:bg-brand-600/50",
   secondary: "bg-white text-slate-800 ring-1 ring-slate-300 hover:bg-slate-50 disabled:text-slate-400",
   danger: "bg-red-600 text-white hover:bg-red-700 disabled:bg-red-600/50",
   ghost: "text-slate-700 hover:bg-slate-100 disabled:text-slate-400",
+  "danger-ghost": "text-red-700 hover:bg-red-50 disabled:text-slate-400",
 };
+const sizes: Record<ButtonSize, string> = { md: "min-h-10 px-4", sm: "min-h-8 px-2.5" };
+
+/** The one place button styling lives; Button and LinkButton both use it. */
+export function buttonClasses({ variant = "primary", size = "md", className }: { variant?: ButtonVariant; size?: ButtonSize; className?: string | undefined }) {
+  return cx("inline-flex items-center justify-center gap-2 rounded-md text-sm font-medium transition-colors disabled:cursor-not-allowed", sizes[size], variants[variant], className);
+}
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: Variant;
+  variant?: ButtonVariant;
+  size?: ButtonSize;
   loading?: boolean;
 }
 
-export function Button({ variant = "primary", loading, disabled, className, children, ...rest }: ButtonProps) {
+export function Button({ variant = "primary", size = "md", loading, disabled, className, children, ...rest }: ButtonProps) {
   return (
-    <button
-      type="button"
-      {...rest}
-      disabled={disabled || loading}
-      aria-busy={loading || undefined}
-      className={cx(
-        "inline-flex min-h-10 items-center justify-center gap-2 rounded-md px-4 text-sm font-medium transition-colors disabled:cursor-not-allowed",
-        variants[variant],
-        className,
-      )}
-    >
+    <button type="button" {...rest} disabled={disabled || loading} aria-busy={loading || undefined} className={buttonClasses({ variant, size, className })}>
       {loading && <Spinner small />}
       {children}
     </button>
+  );
+}
+
+type RouterTarget = { to: string } & Omit<ComponentProps<typeof Link>, "to" | "className">;
+type AnchorTarget = { to?: undefined; href: string } & Omit<AnchorHTMLAttributes<HTMLAnchorElement>, "href" | "className">;
+
+function Anchor({ className, children, ...target }: { className: string; children: ReactNode } & (RouterTarget | AnchorTarget)) {
+  if (target.to !== undefined) {
+    const { to, ...rest } = target as RouterTarget;
+    return (
+      <Link to={to} className={className} {...rest}>
+        {children}
+      </Link>
+    );
+  }
+  const { href, ...rest } = target as AnchorTarget;
+  return (
+    <a href={href} className={className} {...rest}>
+      {children}
+    </a>
+  );
+}
+
+/** A link that looks like a button: `to` for navigation inside the app, `href` for downloads and external addresses. */
+export function LinkButton({ variant = "secondary", size = "md", className, children, ...target }: { variant?: ButtonVariant; size?: ButtonSize; className?: string; children: ReactNode } & (RouterTarget | AnchorTarget)) {
+  return (
+    <Anchor className={buttonClasses({ variant, size, className })} {...target}>
+      {children}
+    </Anchor>
+  );
+}
+
+/** A lightweight inline reference (low-priority navigation inside text or beside a field). */
+export function TextLink({ className, children, ...target }: { className?: string; children: ReactNode } & (RouterTarget | AnchorTarget)) {
+  return (
+    <Anchor className={cx("rounded-sm font-medium text-brand-700 underline-offset-2 hover:underline", className)} {...target}>
+      {children}
+    </Anchor>
+  );
+}
+
+/** Two or more views of the same data (for example chart / table). The selected one is marked, not just coloured. */
+export function Segmented<T extends string>({ label, value, options, onChange }: { label: string; value: T; options: Array<{ value: T; label: string }>; onChange: (value: T) => void }) {
+  return (
+    <div role="group" aria-label={label} className="inline-flex shrink-0 rounded-md bg-slate-100 p-0.5">
+      {options.map((option) => {
+        const selected = option.value === value;
+        return (
+          <button
+            key={option.value}
+            type="button"
+            aria-pressed={selected}
+            onClick={() => onChange(option.value)}
+            className={cx(
+              "min-h-8 rounded px-3 text-xs font-medium transition-colors",
+              selected ? "bg-white text-slate-900 shadow-sm ring-1 ring-slate-200" : "text-slate-600 hover:text-slate-900",
+            )}
+          >
+            {option.label}
+          </button>
+        );
+      })}
+    </div>
   );
 }
 
@@ -68,10 +142,17 @@ const tones: Record<AlertTone, string> = {
   info: "border-blue-200 bg-blue-50 text-blue-900",
 };
 
-export function Alert({ tone = "info", children, className }: { tone?: AlertTone; children: ReactNode; className?: string }) {
+export function Alert({ tone = "info", children, className, action }: { tone?: AlertTone; children: ReactNode; className?: string; action?: ReactNode }) {
   return (
     <div role={tone === "error" ? "alert" : "status"} className={cx("rounded-md border px-4 py-3 text-sm", tones[tone], className)}>
-      {children}
+      {action ? (
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+          <div className="min-w-0 flex-1">{children}</div>
+          <div className="shrink-0">{action}</div>
+        </div>
+      ) : (
+        children
+      )}
     </div>
   );
 }
@@ -188,6 +269,38 @@ export const Checkbox = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInp
       <label htmlFor={id} className="text-sm text-slate-700">
         {label}
       </label>
+    </div>
+  );
+});
+
+/**
+ * File picker with a real button and a readable file name instead of the browser's native "Choose File / No file chosen".
+ * The native input stays in the DOM (visually hidden but focusable) so keyboard use, screen readers and `accept`
+ * validation work as before; the visible button is its label.
+ */
+export const FileInput = forwardRef<HTMLInputElement, Omit<InputHTMLAttributes<HTMLInputElement>, "type" | "onChange" | "children"> & { label?: string; fileName: string | null; onFile: (file: File | null) => void }>(function FileInput(
+  { label = "Choose file", fileName, onFile, className, id, ...rest },
+  ref,
+) {
+  const generated = useId();
+  const inputId = id ?? generated;
+  const statusId = `${inputId}-status`;
+  return (
+    <div className={cx("flex flex-wrap items-center gap-3", className)}>
+      <input ref={ref} id={inputId} type="file" className="peer sr-only" aria-describedby={statusId} onChange={(event) => onFile(event.target.files?.[0] ?? null)} {...rest} />
+      <label
+        htmlFor={inputId}
+        className={cx(
+          buttonClasses({ variant: "secondary" }),
+          "cursor-pointer peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-brand-600 peer-disabled:cursor-not-allowed peer-disabled:text-slate-400",
+        )}
+      >
+        <UploadIcon />
+        {label}
+      </label>
+      <span id={statusId} aria-live="polite" className={cx("min-w-0 max-w-full truncate text-sm", fileName ? "font-medium text-slate-800" : "text-slate-500")}>
+        {fileName ?? "No file selected"}
+      </span>
     </div>
   );
 });

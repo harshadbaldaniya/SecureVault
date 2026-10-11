@@ -71,12 +71,20 @@ describe("dashboard", () => {
     expect(within(chart).getByRole("button", { name: /: 5 reveals and copies$/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Strong: 4 credentials" })).toBeInTheDocument();
 
-    await user.click(within(chart).getByRole("button", { name: "Show table" }));
+    // A two-option control (not two text links): the selected view is exposed, not just coloured.
+    const view = within(chart).getByRole("group", { name: "Your reveals and copies view" });
+    expect(within(view).getByRole("button", { name: "Chart" })).toHaveAttribute("aria-pressed", "true");
+    expect(within(view).getByRole("button", { name: "Table" })).toHaveAttribute("aria-pressed", "false");
+
+    await user.click(within(view).getByRole("button", { name: "Table" }));
     const table = within(chart).getByRole("table");
     const rows = within(table).getAllByRole("row");
     expect(rows).toHaveLength(8); // header + 7 days
     expect(rows.map((r) => r.lastElementChild?.textContent)).toEqual(["Reveals and copies", "0", "2", "5", "1", "0", "0", "3"]);
-    expect(within(chart).getByRole("button", { name: "Show chart" })).toHaveAttribute("aria-pressed", "true");
+    expect(within(view).getByRole("button", { name: "Table" })).toHaveAttribute("aria-pressed", "true");
+    expect(within(view).getByRole("button", { name: "Chart" })).toHaveAttribute("aria-pressed", "false");
+    await user.click(within(view).getByRole("button", { name: "Chart" }));
+    expect(within(chart).queryByRole("table")).not.toBeInTheDocument();
   });
 
   it("adds the organization overview for security staff", async () => {

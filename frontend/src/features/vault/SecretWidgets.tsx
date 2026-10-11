@@ -136,17 +136,18 @@ export function SecretDialog({ title, secret, multiline, onClose }: { title: str
 export function ClipboardNotice({ state, onDismiss }: { state: "copied" | "cleared" | null; onDismiss: () => void }) {
   if (!state) return null;
   return (
-    <Alert tone={state === "copied" ? "info" : "success"} className="mb-4">
-      <div className="flex items-start justify-between gap-4">
-        <span>
-          {state === "copied"
-            ? `Copied. SecureVault will try to clear your clipboard in ${CLEAR_AFTER_MS / 1000} seconds. Clearing is best-effort: browser permissions, clipboard managers or copying something else can prevent it.`
-            : "Clipboard cleared, if your browser allowed it. Clipboard history tools may still hold a copy."}
-        </span>
-        <button type="button" className="text-xs underline" onClick={onDismiss}>
+    <Alert
+      tone={state === "copied" ? "info" : "success"}
+      className="mb-4"
+      action={
+        <Button variant="ghost" size="sm" onClick={onDismiss}>
           Dismiss
-        </button>
-      </div>
+        </Button>
+      }
+    >
+      {state === "copied"
+        ? `Copied. SecureVault will try to clear your clipboard in ${CLEAR_AFTER_MS / 1000} seconds. Clearing is best-effort: browser permissions, clipboard managers or copying something else can prevent it.`
+        : "Clipboard cleared, if your browser allowed it. Clipboard history tools may still hold a copy."}
     </Alert>
   );
 }

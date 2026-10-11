@@ -193,7 +193,7 @@ export function NotesPage() {
                           </Button>
                         )}
                         {can("DELETE") && (
-                          <Button variant="ghost" className="text-red-700" onClick={() => { setActionError(null); setArchiving(n); }} aria-label={`Archive ${n.title}`}>
+                          <Button variant="danger-ghost" onClick={() => { setActionError(null); setArchiving(n); }} aria-label={`Archive ${n.title}`}>
                             Archive
                           </Button>
                         )}
