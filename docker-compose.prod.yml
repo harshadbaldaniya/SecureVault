@@ -1,0 +1,239 @@
+# Production-oriented stack. Run with:
+#   docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --build
+#
+# What is different from the development stack (docker-compose.yml):
+# - Only `web` (nginx, TLS) publishes ports. Backend, worker, database and Redis are reachable only on private networks.
+# - Three database identities: a bootstrap superuser (known only to the database container, for administration),
+#   an owner role that runs migrations in a one-shot job, and a restricted role for the long-running processes that
+#   cannot alter the schema or rewrite the audit trail (see apply_db_grants).
+# - DEBUG is off; API docs and metrics are off unless explicitly enabled; JSON logs; connection pool.
+# - Read-only root filesystems, no Linux capabilities, no privilege escalation, CPU/memory/process limits.
+#
+# This file is a starting point, not a certification: see docs/deployment-guide.md and docs/known-limitations.md.
+
+name: securevault-prod
+
+x-logging: &logging
+  driver: json-file
+  options: { max-size: "10m", max-file: "5" }
+
+x-hardening: &hardening
+  restart: unless-stopped
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
+  read_only: true
+  logging: *logging
+
+# Settings every Django process needs, without any database identity (each service adds its own).
+x-app-env: &app-env
+  DJANGO_DEBUG: "false"
+  DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:?set DJANGO_SECRET_KEY in .env.prod}
+  DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:?set DJANGO_ALLOWED_HOSTS in .env.prod}
+  DJANGO_CSRF_TRUSTED_ORIGINS: ${DJANGO_CSRF_TRUSTED_ORIGINS:?set DJANGO_CSRF_TRUSTED_ORIGINS in .env.prod}
+  DJANGO_NUM_PROXIES: "1" # exactly one trusted hop: the nginx container
+  FRONTEND_URL: ${FRONTEND_URL:?set FRONTEND_URL in .env.prod}
+  INVITATION_TTL_HOURS: ${INVITATION_TTL_HOURS:-72}
+  POSTGRES_DB: ${POSTGRES_DB:-securevault}
+  POSTGRES_HOST: db
+  POSTGRES_PORT: "5432"
+  REDIS_URL: redis://:${REDIS_PASSWORD:?set REDIS_PASSWORD in .env.prod}@redis:6379/0
+  SV_MFA_ENCRYPTION_KEYS: ${SV_MFA_ENCRYPTION_KEYS:?set SV_MFA_ENCRYPTION_KEYS in .env.prod}
+  SV_VAULT_KEK_KEYS: ${SV_VAULT_KEK_KEYS:?set SV_VAULT_KEK_KEYS in .env.prod}
+  SV_BLIND_INDEX_KEYS: ${SV_BLIND_INDEX_KEYS:?set SV_BLIND_INDEX_KEYS in .env.prod}
+  SV_VAULT_KEY_PROVIDER: ${SV_VAULT_KEY_PROVIDER:-apps.vault.keys.EnvKeyProvider}
+  SV_DB_POOL_MAX: ${SV_DB_POOL_MAX:-10}
+  SV_ENABLE_API_DOCS: ${SV_ENABLE_API_DOCS:-false}
+  SV_METRICS_TOKEN: ${SV_METRICS_TOKEN:-}
+  DJANGO_EMAIL_BACKEND: ${DJANGO_EMAIL_BACKEND:-django.core.mail.backends.smtp.EmailBackend}
+  DJANGO_EMAIL_HOST: ${DJANGO_EMAIL_HOST:-localhost}
+  DJANGO_EMAIL_PORT: ${DJANGO_EMAIL_PORT:-587}
+  DJANGO_EMAIL_HOST_USER: ${DJANGO_EMAIL_HOST_USER:-}
+  DJANGO_EMAIL_HOST_PASSWORD: ${DJANGO_EMAIL_HOST_PASSWORD:-}
+  DJANGO_EMAIL_USE_TLS: ${DJANGO_EMAIL_USE_TLS:-true}
+  DJANGO_DEFAULT_FROM_EMAIL: ${DJANGO_DEFAULT_FROM_EMAIL:-SecureVault <no-reply@example.com>}
+
+# The restricted role: used by everything that runs continuously.
+x-app-db: &app-db
+  POSTGRES_USER: ${SV_APP_DB_USER:?set SV_APP_DB_USER in .env.prod}
+  POSTGRES_PASSWORD: ${SV_APP_DB_PASSWORD:?set SV_APP_DB_PASSWORD in .env.prod}
+
+services:
+  db:
+    image: postgres:16-alpine
+    <<: *hardening
+    read_only: false # the postgres image writes to its data directory and /run
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-securevault}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD (bootstrap superuser) in .env.prod}
+      SV_OWNER_DB_USER: ${SV_OWNER_DB_USER:?}
+      SV_OWNER_DB_PASSWORD: ${SV_OWNER_DB_PASSWORD:?}
+      SV_APP_DB_USER: ${SV_APP_DB_USER:?}
+      SV_APP_DB_PASSWORD: ${SV_APP_DB_PASSWORD:?}
+    # Slow-statement log (>1 s) without bind-parameter values, which could contain sensitive data.
+    command: ["postgres", "-c", "log_min_duration_statement=1000", "-c", "log_parameter_max_length=0"]
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./infrastructure/postgres/init:/docker-entrypoint-initdb.d:ro
+    # What the image's entrypoint needs to start as root, fix ownership and drop to the postgres user.
+    cap_add: [CHOWN, DAC_OVERRIDE, FOWNER, SETGID, SETUID]
+    networks: [data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    deploy:
+      resources:
+        limits: { cpus: "1.0", memory: 768M, pids: 200 }
+
+  redis:
+    image: redis:7-alpine
+    <<: *hardening
+    # Throttle counters, the cache and the Channels layer live here: nothing durable and no secrets. volatile-lru only
+    # ever evicts keys that already expire, so memory pressure cannot silently drop a counter that has no TTL.
+    command:
+      - sh
+      - -c
+      - exec redis-server --requirepass "$$REDIS_PASSWORD" --save "" --appendonly no --maxmemory 128mb --maxmemory-policy volatile-lru
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?}
+      REDISCLI_AUTH: ${REDIS_PASSWORD:?}
+    networks: [data]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    deploy:
+      resources:
+        limits: { cpus: "0.5", memory: 192M, pids: 50 }
+
+  # One-shot: applies migrations as the owner role, then grants the restricted role its privileges. The only service
+  # that holds the owner password; the superuser password never leaves the database container.
+  migrate:
+    build: { context: ./backend, target: prod }
+    image: securevault-backend:prod
+    <<: *hardening
+    restart: "no"
+    environment:
+      <<: *app-env
+      POSTGRES_USER: ${SV_OWNER_DB_USER:?set SV_OWNER_DB_USER in .env.prod}
+      POSTGRES_PASSWORD: ${SV_OWNER_DB_PASSWORD:?set SV_OWNER_DB_PASSWORD in .env.prod}
+      SV_APP_DB_USER: ${SV_APP_DB_USER:?}
+    command:
+      - sh
+      - -c
+      - python manage.py migrate --noinput && python manage.py apply_db_grants --role "$$SV_APP_DB_USER"
+    tmpfs: ["/tmp"]
+    networks: [data]
+    depends_on:
+      db: { condition: service_healthy }
+    deploy:
+      resources:
+        limits: { cpus: "1.0", memory: 512M, pids: 100 }
+
+  backend:
+    image: securevault-backend:prod
+    <<: *hardening
+    environment:
+      <<: [*app-env, *app-db]
+      SV_LOG_LEVEL: ${SV_LOG_LEVEL:-INFO}
+    # Daphne serves HTTP and WebSockets. Timeouts and message-size limits bound what one connection can cost.
+    command:
+      - daphne
+      - -b
+      - 0.0.0.0
+      - -p
+      - "8000"
+      - --http-timeout
+      - "60"
+      - --websocket_timeout
+      - "28800"
+      - --websocket_connect_timeout
+      - "5"
+      - --ping-interval
+      - "20"
+      - --ping-timeout
+      - "30"
+      - --websocket-max-message-size
+      - "4096"
+      - --websocket-max-frame-size
+      - "4096"
+      - --no-server-name
+      - --access-log
+      - /dev/null # the application writes its own structured access log; this one prints query strings
+      - config.asgi:application
+    tmpfs: ["/tmp"]
+    networks: [edge, data, egress]
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    healthcheck:
+      # Sent with a permitted Host header: Django rejects requests whose Host is not in ALLOWED_HOSTS.
+      test:
+        - CMD
+        - python
+        - -c
+        - "import os,urllib.request as u; h=os.environ['DJANGO_ALLOWED_HOSTS'].split(',')[0]; u.urlopen(u.Request('http://127.0.0.1:8000/api/v1/health/', headers={'Host': h}), timeout=3)"
+      interval: 10s
+      timeout: 5s
+      start_period: 20s
+      retries: 6
+    deploy:
+      resources:
+        limits: { cpus: "1.0", memory: 512M, pids: 100 }
+
+  worker:
+    image: securevault-backend:prod
+    <<: *hardening
+    environment:
+      <<: [*app-env, *app-db]
+    command: ["python", "manage.py", "run_worker", "--heartbeat-file", "/tmp/worker-heartbeat"]
+    tmpfs: ["/tmp"]
+    networks: [data, egress]
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import os,sys,time; sys.exit(0 if time.time()-os.path.getmtime('/tmp/worker-heartbeat') < 60 else 1)"
+      interval: 15s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+    deploy:
+      resources:
+        limits: { cpus: "0.5", memory: 384M, pids: 50 }
+
+  web:
+    build: { context: ., dockerfile: frontend/Dockerfile, target: web }
+    image: securevault-web:prod
+    <<: *hardening
+    ports:
+      - "${SV_HTTP_PORT:-80}:8080"
+      - "${SV_HTTPS_PORT:-443}:8443"
+    volumes:
+      - ${SV_CERT_DIR:-./deploy/certs}:/etc/nginx/certs:ro # tls.crt and tls.key (never committed; see deploy/README.md)
+    tmpfs: ["/tmp"]
+    networks: [edge]
+    depends_on:
+      backend: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    deploy:
+      resources:
+        limits: { cpus: "0.5", memory: 128M, pids: 50 }
+
+networks:
+  edge: {} # internet-facing: nginx <-> backend
+  data: # backend, worker, migrate <-> database and Redis; no route to or from the outside, nginx cannot reach it
+    internal: true
+  egress: {} # outbound only, for the two services that send email (invitations, password resets)
+
+volumes:
+  pgdata:

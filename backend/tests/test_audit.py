@@ -89,6 +89,13 @@ def test_settings_about_secrets_are_not_redacted(admin):
     assert entry.metadata == {"min_password_length": 16, "max_password_age_days": 90, "password_hint": "[REDACTED]"}
 
 
+def test_the_secret_type_label_is_kept_but_secret_values_are_not(admin):
+    entry = audit.record(
+        AuditAction.CREATE, actor=admin, metadata={"secret_type": "API_KEY", "secret": "hunter2", "secret_value": "x"}
+    )
+    assert entry.metadata == {"secret_type": "API_KEY", "secret": "[REDACTED]", "secret_value": "[REDACTED]"}
+
+
 # --------------------------------------------------------------------------- integrity
 
 

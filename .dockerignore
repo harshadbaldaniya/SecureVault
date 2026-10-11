@@ -1,0 +1,10 @@
+# Build context for frontend/Dockerfile is the repository root. Allow-list what it needs, so no secret
+# (.env, keys, certificates), no virtualenv and no node_modules is ever sent to the Docker daemon.
+*
+!frontend
+!shared
+!infrastructure/nginx
+
+**/node_modules
+**/dist
+**/.vite

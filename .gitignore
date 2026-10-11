@@ -2,9 +2,15 @@
 .env
 .env.*
 !.env.example
+!.env.prod.example
 *.key
 *.pem
+*.crt
 secrets/
+deploy/certs/*
+!deploy/certs/.gitkeep
+deploy/smoke-certs/
+backups/
 
 # Python
 __pycache__/

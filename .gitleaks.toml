@@ -1,0 +1,12 @@
+# gitleaks configuration: the default rules plus an allowlist for test fixtures only.
+title = "SecureVault"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Passwords that exist only to be used by automated tests and strength-estimator vectors"
+paths = [
+  '''backend/tests/''',
+  '''shared/strength-vectors\.json''',
+]

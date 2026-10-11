@@ -1,0 +1,143 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend (db pool ${{ matrix.db_pool }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        db_pool: ["false", "true"] # development connection mode, and the pooled mode production uses
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci-only-throwaway-password
+          POSTGRES_DB: securevault
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U ci -d securevault" --health-interval 5s --health-timeout 3s --health-retries 20
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 3s --health-retries 20
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      # The suite drives the app over plain HTTP, so it runs in development mode. Production settings are tested
+      # separately (tests/test_production_settings.py starts Django with DEBUG off and runs `check --deploy`).
+      DJANGO_DEBUG: "true"
+      DJANGO_SECRET_KEY: ci-only-throwaway-secret-key-not-used-anywhere-else-0123456789
+      POSTGRES_HOST: localhost
+      POSTGRES_USER: ci
+      POSTGRES_PASSWORD: ci-only-throwaway-password
+      REDIS_URL: redis://localhost:6379/0
+      SV_DB_POOL: ${{ matrix.db_pool }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: backend/requirements*.txt
+      - run: pip install -r requirements-dev.txt
+
+      - name: Generate throwaway encryption keys (random for this run, masked, never stored)
+        run: |
+          for name in SV_MFA_ENCRYPTION_KEYS SV_VAULT_KEK_KEYS SV_BLIND_INDEX_KEYS; do
+            value="1:$(python -c 'import base64,os; print(base64.urlsafe_b64encode(os.urandom(32)).decode())')"
+            echo "::add-mask::$value"
+            echo "$name=$value" >> "$GITHUB_ENV"
+          done
+
+      - name: Lint
+        run: ruff check . && ruff format --check .
+      - name: Migrations are in sync with the models
+        run: python manage.py makemigrations --check --dry-run
+      - name: OpenAPI schema is valid and matches docs/openapi.yaml
+        run: |
+          python manage.py spectacular --validate --fail-on-warn --file /tmp/openapi.yaml
+          diff -u ../docs/openapi.yaml /tmp/openapi.yaml
+      - name: Tests with coverage
+        run: pytest -q --cov=apps --cov=core --cov-report=term --cov-report=xml
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: matrix.db_pool == 'false'
+        with:
+          name: backend-coverage
+          path: backend/coverage.xml
+          retention-days: 14
+
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+
+  audit:
+    name: Dependency and secret audit
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # secret scanning covers the whole history
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"
+      - name: Python dependencies (known vulnerabilities)
+        run: |
+          pip install pip-audit
+          pip-audit -r backend/requirements.txt --strict
+      - name: npm dependencies that ship to users (known vulnerabilities)
+        working-directory: frontend
+        run: npm audit --omit=dev --audit-level=low
+      - name: npm dev dependencies (informational; they never reach the production image)
+        working-directory: frontend
+        continue-on-error: true
+        run: npm audit --audit-level=high
+      - name: Secrets in the repository history
+        run: |
+          docker run --rm -v "$PWD:/repo" ghcr.io/gitleaks/gitleaks:v8.30.1 \
+            git /repo --no-banner --redact --exit-code 1
+
+  stack:
+    name: Production stack smoke test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    needs: [backend, frontend]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Build, start with generated secrets, and verify headers, TLS, roles and authentication flow
+        run: ./infrastructure/scripts/smoke_prod.sh

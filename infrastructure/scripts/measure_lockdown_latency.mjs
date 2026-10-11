@@ -8,8 +8,11 @@
 //      node infrastructure/scripts/measure_lockdown_latency.mjs '<password>' 15
 // The figure includes the admin's HTTP request, password re-authentication, the DB commit, Redis fan-out
 // and WebSocket delivery: an upper bound for "time until connected clients are told".
-const BASE = "http://127.0.0.1:8000";
-const WS_URL = "ws://127.0.0.1:8000/ws/events/";
+// Defaults target the development stack. For the production stack through nginx:
+//   SV_BASE=https://localhost:18443 SV_WS=wss://localhost:18443/ws/events/ SV_ORIGIN=https://localhost:18443 \n//   NODE_TLS_REJECT_UNAUTHORIZED=0 node ... (the last one only because the test certificate is self-signed)
+const BASE = process.env.SV_BASE ?? "http://127.0.0.1:8000";
+const WS_URL = process.env.SV_WS ?? "ws://127.0.0.1:8000/ws/events/";
+const ORIGIN = process.env.SV_ORIGIN ?? "http://localhost";
 const [password, roundsArg] = process.argv.slice(2);
 const rounds = Number(roundsArg ?? 20);
 
@@ -28,7 +31,7 @@ async function login(email) {
   const csrf = cookies(first).sv_csrftoken;
   const res = await fetch(`${BASE}/api/v1/auth/login/`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", "X-CSRFToken": csrf, Cookie: `sv_csrftoken=${csrf}` },
+    headers: { "Content-Type": "application/json", "X-CSRFToken": csrf, Cookie: `sv_csrftoken=${csrf}`, Origin: ORIGIN },
     body: JSON.stringify({ email, password }),
   });
   if (res.status !== 200) throw new Error(`login ${email} -> ${res.status} ${await res.text()}`);
@@ -42,6 +45,7 @@ async function post(auth, path, body) {
     headers: {
       "Content-Type": "application/json",
       "X-CSRFToken": auth.csrf,
+      Origin: ORIGIN,
       Cookie: `sv_session=${auth.session}; sv_csrftoken=${auth.csrf}`,
     },
     body: JSON.stringify(body),
@@ -51,7 +55,7 @@ async function post(auth, path, body) {
 
 function openSocket(session) {
   return new Promise((resolve, reject) => {
-    const ws = new WebSocket(WS_URL, { headers: { Cookie: `sv_session=${session}`, Origin: "http://localhost" } });
+    const ws = new WebSocket(WS_URL, { headers: { Cookie: `sv_session=${session}`, Origin: ORIGIN } });
     const timer = setTimeout(() => reject(new Error("socket hello timeout")), 5000);
     ws.addEventListener("message", function onHello(event) {
       const msg = JSON.parse(event.data);

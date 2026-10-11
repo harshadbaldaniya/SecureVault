@@ -31,8 +31,8 @@ _SENSITIVE_KEY = re.compile(
     r"authorization|credential_value|\bkey\b",
     re.IGNORECASE,
 )
-# Settings *about* secrets (e.g. min_password_length) are not secrets themselves.
-_NON_SECRET_KEY = re.compile(r"_(length|age_days|count|required)$", re.IGNORECASE)
+# Settings *about* secrets (e.g. min_password_length) and the secret_type label (PASSWORD / API_KEY) are not secrets.
+_NON_SECRET_KEY = re.compile(r"_(length|age_days|count|required)$|^secret_type$", re.IGNORECASE)
 _MAX_METADATA_BYTES = 8_000
 
 
