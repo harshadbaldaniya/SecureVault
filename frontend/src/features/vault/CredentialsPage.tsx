@@ -6,6 +6,8 @@ import { useDebounced } from "@/hooks/useDebounced";
 import { api, ApiError } from "@/services/api";
 import type { Credential, Page, ServiceItem } from "@/types/api";
 
+import { ShareDialogContent } from "@/features/sharing/ShareDialog";
+
 import { CredentialForm } from "./CredentialForm";
 import { ClipboardNotice, HygieneBadges, SecretDialog } from "./SecretWidgets";
 import { useSecretActions } from "./useSecretActions";
@@ -22,6 +24,8 @@ export function CredentialsPage() {
   const [service, setService] = useState("");
   const [tag, setTag] = useState("");
   const [status, setStatus] = useState<StatusFilter>("");
+  const [scope, setScope] = useState<"" | "mine" | "shared">("");
+  const [sharing, setSharing] = useState<Credential | null>(null);
   const debouncedSearch = useDebounced(search);
   const debouncedTag = useDebounced(tag);
   const [editing, setEditing] = useState<Credential | "new" | null>(null);
@@ -37,6 +41,7 @@ export function CredentialsPage() {
   const params = {
     page,
     archived: archived || undefined,
+    scope: scope || undefined,
     search: debouncedSearch,
     service,
     tag: debouncedTag,
@@ -101,7 +106,16 @@ export function CredentialsPage() {
         ))}
       </div>
 
-      <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+        <Field label="Show">
+          {(props) => (
+            <Select {...props} value={scope} onChange={(e) => reset(setScope)(e.target.value as "" | "mine" | "shared")}>
+              <option value="">Mine and shared with me</option>
+              <option value="mine">Only mine</option>
+              <option value="shared">Shared with me</option>
+            </Select>
+          )}
+        </Field>
         <Field label="Search" hint="Title, username, service or category. Secrets are never searchable.">
           {(props) => <Input {...props} type="search" value={search} onChange={(e) => reset(setSearch)(e.target.value)} />}
         </Field>
@@ -147,6 +161,14 @@ export function CredentialsPage() {
                   <td className="px-4 py-3">
                     <span className="font-medium">{c.title}</span>
                     {c.username && <span className="block text-xs text-slate-500">{c.username}</span>}
+                    {c.sharing && (
+                      <span className="mt-1 flex flex-wrap items-center gap-1 text-xs text-slate-500">
+                        <Badge tone="blue">Shared by {c.sharing.shared_by ?? c.owner_name}</Badge>
+                        {c.sharing.view_once && <Badge tone="amber">View once</Badge>}
+                        {c.sharing.consumed && <Badge tone="slate">View-once used</Badge>}
+                        {c.sharing.expires_at && <span>until {new Date(c.sharing.expires_at).toLocaleString()}</span>}
+                      </span>
+                    )}
                   </td>
                   <td className="px-4 py-3">{c.service_name ?? "—"}</td>
                   <td className="px-4 py-3">
@@ -184,6 +206,11 @@ export function CredentialsPage() {
                             Edit
                           </Button>
                         )}
+                        {can("SHARE") && (
+                          <Button variant="ghost" onClick={() => setSharing(c)} aria-label={`Share ${c.title}`}>
+                            Share
+                          </Button>
+                        )}
                         {can("DELETE") && (
                           <Button variant="ghost" className="text-red-700" onClick={() => { setActionError(null); setArchiving(c); }} aria-label={`Archive ${c.title}`}>
                             Archive
@@ -205,6 +232,10 @@ export function CredentialsPage() {
       </Dialog>
 
       <SecretDialog title={secrets.revealed ? `Secret for ${secrets.revealed.title}` : ""} secret={secrets.revealed?.value ?? null} onClose={secrets.closeReveal} />
+
+      <Dialog open={sharing !== null} title={sharing ? `Share "${sharing.title}"` : ""} onClose={() => setSharing(null)}>
+        {sharing && <ShareDialogContent credential={sharing} onDone={() => setSharing(null)} />}
+      </Dialog>
 
       <ConfirmDialog
         open={archiving !== null}

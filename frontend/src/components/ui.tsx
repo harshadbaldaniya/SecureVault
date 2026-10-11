@@ -180,17 +180,17 @@ export const Select = forwardRef<HTMLSelectElement, SelectHTMLAttributes<HTMLSel
   );
 });
 
-export function Checkbox({ label, ...rest }: InputHTMLAttributes<HTMLInputElement> & { label: string }) {
+export const Checkbox = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement> & { label: string }>(function Checkbox({ label, ...rest }, ref) {
   const id = useId();
   return (
     <div className="flex items-center gap-2">
-      <input id={id} type="checkbox" {...rest} className="size-4 rounded border-slate-300 text-brand-600" />
+      <input ref={ref} id={id} type="checkbox" {...rest} className="size-4 rounded border-slate-300 text-brand-600" />
       <label htmlFor={id} className="text-sm text-slate-700">
         {label}
       </label>
     </div>
   );
-}
+});
 
 // --------------------------------------------------------------------------- Dialogs
 

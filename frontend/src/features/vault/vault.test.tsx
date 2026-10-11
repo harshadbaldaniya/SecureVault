@@ -18,7 +18,8 @@ function credential(overrides: Partial<Credential> = {}): Credential {
     id: "c1", title: "Prod DB", username: "svc_app", service: null, service_name: null, secret_type: "PASSWORD",
     category: "", tags: ["prod"], expires_at: "2027-01-01", entropy_bits: 120, strength: "very_strong",
     is_expired: false, expires_soon: false, password_age_days: 3, reuse_count: 0, owner_name: "Eve",
-    permissions: ["COPY", "DELETE", "EDIT", "REVEAL", "SHARE", "VIEW"], archived_at: null,
+    permissions: ["COPY", "DELETE", "EDIT", "REVEAL", "SHARE", "VIEW"], access: "owner", sharing: null,
+    requestable: false, archived_at: null,
     created_at: "2026-10-01T00:00:00Z", updated_at: "2026-10-01T00:00:00Z", password_changed_at: "2026-10-01T00:00:00Z",
     ...overrides,
   };

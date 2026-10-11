@@ -152,10 +152,110 @@ export interface Credential {
   reuse_count: number;
   owner_name: string;
   permissions: VaultPermission[];
+  access: "owner" | "shared";
+  /** How a grantee got access; null for the owner. */
+  sharing: {
+    permission: SharePermission | null;
+    expires_at: string | null;
+    shared_by: string | null;
+    view_once: boolean;
+    consumed: boolean;
+  } | null;
+  requestable: boolean;
   archived_at: string | null;
   created_at: string;
   updated_at: string;
   password_changed_at: string;
+}
+
+export type SharePermission = "VIEW" | "EDIT" | "SHARE";
+export type ShareState = "ACTIVE" | "EXPIRED" | "REVOKED" | "CONSUMED";
+
+export interface Person {
+  id: string;
+  full_name: string;
+  email: string;
+  department_name: string | null;
+}
+
+export interface Share {
+  id: string;
+  credential: string;
+  credential_title: string;
+  grantor: Person;
+  grantee: Person;
+  parent_share: string | null;
+  depth: number;
+  permission: SharePermission;
+  expires_at: string;
+  is_view_once: boolean;
+  burned_at: string | null;
+  revoked_at: string | null;
+  revoked_by_name: string | null;
+  revoke_reason: string;
+  state: ShareState;
+  created_at: string;
+}
+
+export interface TreeNode {
+  id: string;
+  parent_share: string | null;
+  depth: number;
+  grantor: string;
+  grantee: string;
+  grantee_email: string;
+  permission: SharePermission;
+  state: ShareState;
+  expires_at: string;
+  is_view_once: boolean;
+  created_at: string;
+}
+
+export interface DelegationTree {
+  credential: string;
+  credential_title: string;
+  owner: string;
+  nodes: TreeNode[];
+}
+
+export interface DirectoryEntry {
+  id: string;
+  title: string;
+  service_name: string | null;
+  category: string;
+  owner_name: string;
+}
+
+export type RequestState = "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED" | "EXPIRED";
+
+export interface AccessRequest {
+  id: string;
+  credential: string;
+  credential_title: string;
+  owner_name: string;
+  requester_name: string;
+  approver_name: string | null;
+  permission: "VIEW" | "EDIT";
+  requested_duration_hours: number;
+  reason: string;
+  state: RequestState;
+  expires_at: string;
+  decided_at: string | null;
+  decision_note: string;
+  share: string | null;
+  created_at: string;
+}
+
+export interface AppNotification {
+  id: string;
+  type: string;
+  priority: "LOW" | "NORMAL" | "HIGH" | "CRITICAL";
+  title: string;
+  message: string;
+  link: string;
+  is_read: boolean;
+  read_at: string | null;
+  created_at: string;
 }
 
 export interface SecureNote {

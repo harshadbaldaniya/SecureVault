@@ -18,7 +18,13 @@ export interface FetchCall {
   headers: Record<string, string>;
 }
 
-export function mockFetch(routes: Routes) {
+/** Endpoints every signed-in page calls; tests may override them. */
+const DEFAULT_ROUTES: Routes = {
+  "GET /notifications/unread-count/": { body: { unread: 0 } },
+};
+
+export function mockFetch(overrides: Routes) {
+  const routes: Routes = { ...DEFAULT_ROUTES, ...overrides };
   const calls: FetchCall[] = [];
   const fn = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = new URL(String(input), "http://localhost");

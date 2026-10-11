@@ -3,6 +3,7 @@ import { NavLink, Outlet } from "react-router-dom";
 
 import { Button } from "@/components/ui";
 import { useAuth } from "@/features/authentication/AuthContext";
+import { NotificationBell } from "@/features/notifications/NotificationsPage";
 import type { Permission } from "@/types/api";
 
 interface NavItem {
@@ -15,6 +16,8 @@ const NAV: NavItem[] = [
   { to: "/", label: "Home" },
   { to: "/vault", label: "Credentials" },
   { to: "/vault/notes", label: "Secure notes" },
+  { to: "/sharing", label: "Sharing" },
+  { to: "/access-requests", label: "Access requests" },
   { to: "/employees", label: "Employees", permission: "users.view" },
   { to: "/departments", label: "Departments" },
   { to: "/services", label: "Service catalog" },
@@ -64,6 +67,9 @@ export function AppLayout() {
             </NavLink>
           ))}
         </nav>
+        <div className="px-3 pb-2">
+          <NotificationBell />
+        </div>
         <div className="border-t border-white/10 p-4 text-sm">
           <p className="truncate font-medium text-white">{user.full_name}</p>
           <p className="truncate text-xs text-slate-400">{ROLE_LABEL[user.role]}</p>

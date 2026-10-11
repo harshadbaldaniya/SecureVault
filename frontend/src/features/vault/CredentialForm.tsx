@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
-import { Alert, Button, Field, Input, Select } from "@/components/ui";
+import { Alert, Button, Checkbox, Field, Input, Select } from "@/components/ui";
 import { api, ApiError, fieldErrors } from "@/services/api";
 import type { Credential, Page, SecretType, SecurityPolicy, ServiceItem } from "@/types/api";
 
@@ -44,6 +44,7 @@ function buildSchema(mode: "create" | "edit", policy: SecurityPolicy | undefined
       tags: z.string(),
       expires_at: z.string(),
       password: z.string().max(4096, "Secrets are limited to 4096 characters."),
+      requestable: z.boolean(),
     })
     .superRefine((values, ctx) => {
       if (mode === "create" && !values.password) {
@@ -88,8 +89,10 @@ export function CredentialForm({ credential, onDone }: { credential: Credential 
       tags: credential?.tags.join(", ") ?? "",
       expires_at: credential?.expires_at ?? "",
       password: "",
+      requestable: credential?.requestable ?? false,
     },
   });
+  const isOwner = !credential || credential.access === "owner";
   const password = form.watch("password");
   const secretType = form.watch("secret_type");
 
@@ -105,6 +108,7 @@ export function CredentialForm({ credential, onDone }: { credential: Credential 
       };
       if (!credential || values.expires_at !== (credential.expires_at ?? "")) body.expires_at = values.expires_at || null;
       if (values.password) body.password = values.password; // edit: blank means "keep the current secret"
+      if (isOwner) body.requestable = values.requestable; // owner-only setting (the server enforces it too)
       return credential ? api.patch<Credential>(`/vault/credentials/${credential.id}/`, body) : api.post<Credential>("/vault/credentials/", body);
     },
     // gcTime 0: do not keep the submitted variables (which include the secret) in the mutation cache.
@@ -169,6 +173,12 @@ export function CredentialForm({ credential, onDone }: { credential: Credential 
       <Field label="Tags" hint="Comma-separated, e.g. prod, database" error={errors.tags?.message}>
         {(props) => <Input {...props} {...form.register("tags")} />}
       </Field>
+      {isOwner && (
+        <div>
+          <Checkbox label="Allow colleagues to request access" {...form.register("requestable")} />
+          <p className="ml-6 mt-1 text-xs text-slate-500">Lists the title, service and category (never the username or secret) in the access-request directory. You approve each request.</p>
+        </div>
+      )}
 
       <div>
         <Field label={mode === "create" ? "Secret" : "New secret (leave blank to keep the current one)"} hint={policyHint} error={errors.password?.message}>

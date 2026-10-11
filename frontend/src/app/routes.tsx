@@ -1,6 +1,9 @@
 import { Link, Navigate, Route, Routes } from "react-router-dom";
 
+import { AccessRequestsPage } from "@/features/access-requests/AccessRequestsPage";
 import { AuditPage } from "@/features/audit/AuditPage";
+import { NotificationsPage } from "@/features/notifications/NotificationsPage";
+import { SharingPage } from "@/features/sharing/SharingPage";
 import { AcceptInvitePage, ForgotPasswordPage, ResetPasswordPage } from "@/features/authentication/PasswordPages";
 import { LoginPage } from "@/features/authentication/LoginPage";
 import { SecurityPage } from "@/features/authentication/SecurityPage";
@@ -46,6 +49,9 @@ export function AppRoutes() {
         <Route path="security" element={<SecurityPage />} />
         <Route path="vault" element={<CredentialsPage />} />
         <Route path="vault/notes" element={<NotesPage />} />
+        <Route path="sharing" element={<SharingPage />} />
+        <Route path="access-requests" element={<AccessRequestsPage />} />
+        <Route path="notifications" element={<NotificationsPage />} />
         <Route path="departments" element={<DepartmentsPage />} />
         <Route path="services" element={<ServicesPage />} />
         <Route path="policy" element={<PolicyPage />} />
