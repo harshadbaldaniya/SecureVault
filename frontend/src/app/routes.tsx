@@ -1,25 +1,34 @@
+import { lazy, type ComponentType } from "react";
 import { Link, Navigate, Route, Routes } from "react-router-dom";
 
-import { AccessRequestsPage } from "@/features/access-requests/AccessRequestsPage";
-import { AuditPage } from "@/features/audit/AuditPage";
-import { AlertsPage } from "@/features/devices/AlertsPage";
-import { DevicesPage } from "@/features/devices/DevicesPage";
-import { LockdownPage } from "@/features/lockdown/LockdownPage";
-import { NotificationsPage } from "@/features/notifications/NotificationsPage";
-import { SharingPage } from "@/features/sharing/SharingPage";
 import { AcceptInvitePage, ForgotPasswordPage, ResetPasswordPage } from "@/features/authentication/PasswordPages";
 import { LoginPage } from "@/features/authentication/LoginPage";
-import { SecurityPage } from "@/features/authentication/SecurityPage";
 import { HomePage } from "@/features/dashboard/HomePage";
-import { DepartmentsPage } from "@/features/departments/DepartmentsPage";
-import { EmployeesPage } from "@/features/employees/EmployeesPage";
-import { PolicyPage } from "@/features/policies/PolicyPage";
-import { ServicesPage } from "@/features/policies/ServicesPage";
-import { CredentialsPage } from "@/features/vault/CredentialsPage";
-import { NotesPage } from "@/features/vault/NotesPage";
+import { NotificationsPage } from "@/features/notifications/NotificationsPage";
 
 import { AppLayout } from "./AppLayout";
 import { ProtectedRoute } from "./ProtectedRoute";
+
+/** Each signed-in screen is its own chunk, fetched on first visit (AppLayout shows a loader meanwhile). */
+function page<M>(load: () => Promise<M>, name: keyof M) {
+  return lazy(async () => ({ default: (await load())[name] as ComponentType }));
+}
+
+const AccessRequestsPage = page(() => import("@/features/access-requests/AccessRequestsPage"), "AccessRequestsPage");
+const AlertsPage = page(() => import("@/features/devices/AlertsPage"), "AlertsPage");
+const AuditPage = page(() => import("@/features/audit/AuditPage"), "AuditPage");
+const CredentialsPage = page(() => import("@/features/vault/CredentialsPage"), "CredentialsPage");
+const DepartmentsPage = page(() => import("@/features/departments/DepartmentsPage"), "DepartmentsPage");
+const DevicesPage = page(() => import("@/features/devices/DevicesPage"), "DevicesPage");
+const EmployeesPage = page(() => import("@/features/employees/EmployeesPage"), "EmployeesPage");
+const ImportsPage = page(() => import("@/features/employees/ImportsPage"), "ImportsPage");
+const LockdownPage = page(() => import("@/features/lockdown/LockdownPage"), "LockdownPage");
+const NotesPage = page(() => import("@/features/vault/NotesPage"), "NotesPage");
+const PolicyPage = page(() => import("@/features/policies/PolicyPage"), "PolicyPage");
+const ReportsPage = page(() => import("@/features/reports/ReportsPage"), "ReportsPage");
+const SecurityPage = page(() => import("@/features/authentication/SecurityPage"), "SecurityPage");
+const ServicesPage = page(() => import("@/features/policies/ServicesPage"), "ServicesPage");
+const SharingPage = page(() => import("@/features/sharing/SharingPage"), "SharingPage");
 
 function NotFound() {
   return (
@@ -80,6 +89,22 @@ export function AppRoutes() {
           element={
             <ProtectedRoute permission="users.view">
               <EmployeesPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="employees/import"
+          element={
+            <ProtectedRoute permission="invitations.manage">
+              <ImportsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="reports"
+          element={
+            <ProtectedRoute permission="reports.view">
+              <ReportsPage />
             </ProtectedRoute>
           }
         />

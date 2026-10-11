@@ -16,7 +16,8 @@ export type Permission =
   | "shares.view_all"
   | "devices.manage"
   | "alerts.manage"
-  | "lockdown.manage";
+  | "lockdown.manage"
+  | "reports.view";
 
 export interface Me {
   id: string;
@@ -86,6 +87,82 @@ export interface AnomalyAlert {
   reviewed_at: string | null;
   review_note: string;
   created_at: string;
+}
+
+export interface DailyCount {
+  date: string;
+  count: number;
+}
+
+export interface Dashboard {
+  me: {
+    credentials: number;
+    shared_with_me: number;
+    shares_given: number;
+    requests_to_approve: number;
+    my_pending_requests: number;
+    expiring_soon: number;
+    expired: number;
+    weak: number;
+    reused: number;
+    strength: Array<{ label: StrengthLevel; count: number }>;
+    devices: { trusted: number; not_trusted: number };
+    unread_notifications: number;
+    activity: DailyCount[];
+  };
+  organization: {
+    credentials: number;
+    active_shares: number;
+    pending_requests: number;
+    devices: { trusted: number; pending: number; suspended: number };
+    open_alerts: { LOW: number; MEDIUM: number; HIGH: number };
+    active_lockdowns: ActiveLockdown[];
+    recent_security_events: Array<{ created_at: string; action: string; outcome: string; actor_email: string; target_label: string; reason: string }>;
+    activity: DailyCount[];
+  } | null;
+}
+
+export interface ImportRowError {
+  row: number;
+  email: string;
+  full_name: string;
+  department: string;
+  role: string;
+  errors: Array<{ field: string; message: string }>;
+}
+
+export interface ImportJob {
+  id: string;
+  file_name: string;
+  status: "QUEUED" | "PROCESSING" | "COMPLETED" | "FAILED";
+  total_rows: number;
+  success_count: number;
+  failed_count: number;
+  errors: ImportRowError[];
+  file_error: string;
+  uploaded_by_name: string;
+  retry_of: string | null;
+  created_at: string;
+  started_at: string | null;
+  finished_at: string | null;
+}
+
+export interface ReportDefinition {
+  key: string;
+  title: string;
+  description: string;
+  columns: Array<{ key: string; label: string }>;
+  filters: string[];
+  statuses: string[];
+}
+
+export interface ReportPage {
+  report: string;
+  title: string;
+  columns: Array<{ key: string; label: string }>;
+  count: number;
+  page: number;
+  results: Array<Record<string, string | number | boolean | null>>;
 }
 
 export interface Lockdown {

@@ -1,3 +1,5 @@
+import json
+from pathlib import Path
 from unittest import mock
 
 import pytest
@@ -192,3 +194,9 @@ def test_audit_filters_and_verify_endpoint(client_for, sec_admin):
     verify = client.get(f"{AUDIT}verify/").json()
     assert verify["valid"] is True
     assert verify["checked"] >= 2
+
+
+def test_shared_action_list_matches_the_backend():
+    """The UI's action filters come from shared/audit-actions.json; a new action must be added there too."""
+    shared = Path(__file__).resolve().parents[2] / "shared" / "audit-actions.json"
+    assert json.loads(shared.read_text(encoding="utf-8")) == list(AuditAction.values)

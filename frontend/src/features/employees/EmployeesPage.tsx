@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 
 import { PageHeader } from "@/components/ui";
 import { useAuth } from "@/features/authentication/AuthContext";
@@ -13,7 +14,17 @@ export function EmployeesPage() {
 
   return (
     <>
-      <PageHeader title="Employees" description="People in your organization. New employees join through single-use invitations." />
+      <PageHeader
+        title="Employees"
+        description="People in your organization. New employees join through single-use invitations."
+        actions={
+          canInvite && (
+            <Link to="/employees/import" className="inline-flex min-h-10 items-center rounded-md bg-white px-4 text-sm font-medium text-slate-800 ring-1 ring-slate-300 hover:bg-slate-50">
+              Import from Excel
+            </Link>
+          )
+        }
+      />
       {canInvite && (
         <div role="tablist" aria-label="Employee views" className="mb-4 flex gap-1 border-b border-slate-200">
           {(["employees", "invitations"] as const).map((name) => (

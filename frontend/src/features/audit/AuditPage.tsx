@@ -5,11 +5,9 @@ import { Alert, Badge, Button, Card, EmptyState, Field, Input, PageHeader, PageL
 import { api, ApiError } from "@/services/api";
 import type { AuditEntry, ChainVerification, Page } from "@/types/api";
 
+import { AUDIT_ACTIONS } from "./actions";
+
 const PAGE_SIZE = 25;
-const ACTIONS = [
-  "LOGIN", "LOGOUT", "CREATE", "EDIT", "DELETE", "INVITE", "ACCOUNT_ACTIVATE", "REVOKE", "POLICY_CHANGE",
-  "MFA_ENROLL", "MFA_DISABLE", "MFA_RESET", "PASSWORD_CHANGE", "PASSWORD_RESET_REQUEST", "PASSWORD_RESET",
-];
 const outcomeTone = { SUCCESS: "green", FAILURE: "red", DENIED: "amber" } as const;
 const message = (e: unknown) => (e instanceof ApiError ? e.message : "Something went wrong. Please try again.");
 
@@ -66,7 +64,7 @@ export function AuditPage() {
             {(props) => (
               <Select {...props} value={action} onChange={(e) => reset(setAction)(e.target.value)}>
                 <option value="">All actions</option>
-                {ACTIONS.map((a) => (
+                {AUDIT_ACTIONS.map((a) => (
                   <option key={a} value={a}>
                     {a}
                   </option>

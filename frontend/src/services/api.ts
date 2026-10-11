@@ -53,22 +53,33 @@ async function ensureCsrfCookie(): Promise<string> {
   return readCookie(CSRF_COOKIE) ?? "";
 }
 
+type ParamValue = string | number | boolean | undefined | null;
+/** Query parameters; an array repeats the key (e.g. `action=LOGIN&action=REVEAL`). Empty values are left out. */
+export type QueryParams = Record<string, ParamValue | ParamValue[]>;
+
 interface RequestOptions {
   method?: "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
   body?: unknown;
-  params?: Record<string, string | number | boolean | undefined | null>;
+  params?: QueryParams;
   /** Do not treat 401 as "session expired" (used by the sign-in calls themselves). */
   skipUnauthorizedHandler?: boolean;
 }
 
-function toQuery(params: RequestOptions["params"]): string {
+function toQuery(params: QueryParams | undefined): string {
   if (!params) return "";
   const search = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
-    if (value !== undefined && value !== null && value !== "") search.set(key, String(value));
+    for (const item of Array.isArray(value) ? value : [value]) {
+      if (item !== undefined && item !== null && item !== "") search.append(key, String(item));
+    }
   }
   const text = search.toString();
   return text ? `?${text}` : "";
+}
+
+/** Full same-origin URL for plain links (downloads), e.g. `apiUrl("/reports/audit/", { format: "csv" })`. */
+export function apiUrl(path: string, params?: QueryParams): string {
+  return `${BASE}${path}${toQuery(params)}`;
 }
 
 function toApiError(status: number, payload: unknown): ApiError {
@@ -111,8 +122,30 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
   return payload as T;
 }
 
+/** Multipart upload (the browser sets the boundary). Same CSRF and error handling as `request`. */
+export async function upload<T>(path: string, form: FormData): Promise<T> {
+  let response: Response;
+  try {
+    response = await fetch(`${BASE}${path}`, {
+      method: "POST",
+      headers: { Accept: "application/json", "X-CSRFToken": await ensureCsrfCookie() },
+      credentials: "same-origin",
+      body: form,
+    });
+  } catch {
+    throw new ApiError(0, "network_error", "Cannot reach the server. Check your connection and try again.");
+  }
+  const payload: unknown = await response.json().catch(() => null);
+  if (!response.ok) {
+    if (response.status === 401) onUnauthorized?.();
+    if (response.status === 423) onLockdown?.();
+    throw toApiError(response.status, payload);
+  }
+  return payload as T;
+}
+
 export const api = {
-  get: <T>(path: string, params?: RequestOptions["params"], opts?: Pick<RequestOptions, "skipUnauthorizedHandler">) =>
+  get: <T>(path: string, params?: QueryParams, opts?: Pick<RequestOptions, "skipUnauthorizedHandler">) =>
     request<T>(path, { params, ...opts }),
   post: <T>(path: string, body?: unknown, opts?: Pick<RequestOptions, "skipUnauthorizedHandler">) =>
     request<T>(path, { method: "POST", body: body ?? {}, ...opts }),

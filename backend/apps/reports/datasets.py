@@ -405,6 +405,7 @@ SHARES = Dataset(
         Column("revoked_at", "Revoked (UTC)", lambda r: r.revoked_at),
         Column("revoke_reason", "Revocation reason", lambda r: r.revoke_reason),
         Column("id", "Grant id", lambda r: str(r.pk)),
+        Column("credential_id", "Credential id", lambda r: str(r.credential_id)),
     ),
     filters=frozenset({"date", "share_status", "user", "resource", "service", "department"}),
     statuses=frozenset(),

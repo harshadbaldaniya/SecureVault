@@ -6,7 +6,7 @@ import { makeQueryClient, Providers } from "@/app/providers";
 import { AppRoutes } from "@/app/routes";
 import type { Me, Permission, Role } from "@/types/api";
 
-type Handler = (request: { method: string; path: string; body: unknown; headers: Record<string, string> }) => { status?: number; body?: unknown };
+type Handler = (request: { method: string; path: string; query: URLSearchParams; body: unknown; headers: Record<string, string> }) => { status?: number; body?: unknown };
 
 /** Route table keyed by "METHOD /path" (query string ignored). Unmatched calls fail the test loudly. */
 export type Routes = Record<string, Handler | { status?: number; body?: unknown }>;
@@ -14,6 +14,9 @@ export type Routes = Record<string, Handler | { status?: number; body?: unknown 
 export interface FetchCall {
   method: string;
   path: string;
+  /** Parsed query string (repeated keys preserved). */
+  query: URLSearchParams;
+  /** JSON bodies are parsed; anything else (e.g. FormData) is passed through. */
   body: unknown;
   headers: Record<string, string>;
 }
@@ -30,8 +33,17 @@ export const THIS_DEVICE = {
   trust_changed_by_name: null, trust_changed_at: null, trust_reason: "", is_current: true, created_at: "2026-10-11T00:00:00Z",
 };
 
+export const EMPTY_DASHBOARD = {
+  me: {
+    credentials: 0, shared_with_me: 0, shares_given: 0, requests_to_approve: 0, my_pending_requests: 0, expiring_soon: 0,
+    expired: 0, weak: 0, reused: 0, strength: [], devices: { trusted: 0, not_trusted: 0 }, unread_notifications: 0, activity: [],
+  },
+  organization: null,
+};
+
 /** Endpoints every signed-in page calls; tests may override them. */
 const DEFAULT_ROUTES: Routes = {
+  "GET /dashboard/": { body: EMPTY_DASHBOARD },
   "GET /notifications/unread-count/": { body: { unread: 0 } },
   "POST /devices/register/": { body: THIS_DEVICE },
   "GET /policy/": { body: DEFAULT_POLICY },
@@ -46,12 +58,12 @@ export function mockFetch(overrides: Routes) {
     const method = (init?.method ?? "GET").toUpperCase();
     const path = url.pathname.replace(/^\/api\/v1/, "");
     const headers = Object.fromEntries(Object.entries((init?.headers as Record<string, string>) ?? {}));
-    const body = typeof init?.body === "string" ? JSON.parse(init.body) : undefined;
-    calls.push({ method, path, body, headers });
+    const body = typeof init?.body === "string" ? JSON.parse(init.body) : init?.body;
+    calls.push({ method, path, query: url.searchParams, body, headers });
 
     const entry = routes[`${method} ${path}`];
     if (!entry) throw new Error(`Unmocked request: ${method} ${path}`);
-    const result = typeof entry === "function" ? entry({ method, path, body, headers }) : entry;
+    const result = typeof entry === "function" ? entry({ method, path, query: url.searchParams, body, headers }) : entry;
     const status = result.status ?? 200;
     return new Response(status === 204 ? null : JSON.stringify(result.body ?? {}), {
       status,
@@ -63,7 +75,7 @@ export function mockFetch(overrides: Routes) {
 }
 
 const SECURITY_OPERATIONS: Permission[] = [
-  "audit.view", "shares.revoke_any", "shares.view_all", "devices.manage", "alerts.manage", "lockdown.manage",
+  "audit.view", "shares.revoke_any", "shares.view_all", "devices.manage", "alerts.manage", "lockdown.manage", "reports.view",
 ];
 
 export const ALL_ADMIN_PERMISSIONS: Permission[] = [

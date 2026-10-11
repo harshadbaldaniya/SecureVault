@@ -1,8 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { Link, NavLink, Outlet } from "react-router-dom";
 
-import { Alert, Button } from "@/components/ui";
+import { Alert, Button, PageLoader } from "@/components/ui";
 import { useAuth } from "@/features/authentication/AuthContext";
 import { useDeviceRegistration } from "@/features/devices/deviceRegistration";
 import { NotificationBell } from "@/features/notifications/NotificationsPage";
@@ -29,6 +29,7 @@ const NAV: NavItem[] = [
   { to: "/policy", label: "Security policy" },
   { to: "/alerts", label: "Security alerts", permission: "alerts.manage" },
   { to: "/lockdown", label: "Emergency lockdown", permission: "lockdown.manage" },
+  { to: "/reports", label: "Reports", permission: "reports.view" },
   { to: "/audit", label: "Audit log", permission: "audit.view" },
   { to: "/security", label: "Account security" },
 ];
@@ -132,7 +133,9 @@ export function AppLayout() {
               </Link>
             </Alert>
           )}
-          <Outlet />
+          <Suspense fallback={<PageLoader />}>
+            <Outlet />
+          </Suspense>
         </div>
       </main>
 

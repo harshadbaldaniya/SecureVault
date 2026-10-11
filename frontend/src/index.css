@@ -8,6 +8,19 @@
   --color-ink: #0f172a;
 }
 
+/* Chart tokens (validated palette: series 1 passes every check on the white card surface; the meter track is
+   ramp step 250, the lightest that clears 2:1). Status colors are reserved and always paired with icon + label. */
+:root {
+  --viz-series-1: #2a78d6;
+  --viz-track: #86b6ef;
+  --viz-baseline: #c3c2b7;
+  --viz-grid: #e1e0d9;
+  --viz-status-good: #0ca30c;
+  --viz-status-warning: #fab219;
+  --viz-status-serious: #ec835a;
+  --viz-status-critical: #d03b3b;
+}
+
 html,
 body,
 #root {
