@@ -9,6 +9,8 @@ import { DepartmentsPage } from "@/features/departments/DepartmentsPage";
 import { EmployeesPage } from "@/features/employees/EmployeesPage";
 import { PolicyPage } from "@/features/policies/PolicyPage";
 import { ServicesPage } from "@/features/policies/ServicesPage";
+import { CredentialsPage } from "@/features/vault/CredentialsPage";
+import { NotesPage } from "@/features/vault/NotesPage";
 
 import { AppLayout } from "./AppLayout";
 import { ProtectedRoute } from "./ProtectedRoute";
@@ -42,6 +44,8 @@ export function AppRoutes() {
       >
         <Route index element={<HomePage />} />
         <Route path="security" element={<SecurityPage />} />
+        <Route path="vault" element={<CredentialsPage />} />
+        <Route path="vault/notes" element={<NotesPage />} />
         <Route path="departments" element={<DepartmentsPage />} />
         <Route path="services" element={<ServicesPage />} />
         <Route path="policy" element={<PolicyPage />} />

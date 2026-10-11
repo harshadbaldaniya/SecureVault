@@ -129,6 +129,48 @@ export interface ChainVerification {
   broken_at_sequence: number | null;
 }
 
+export type SecretType = "PASSWORD" | "API_KEY" | "OTHER";
+export type VaultPermission = "VIEW" | "REVEAL" | "COPY" | "EDIT" | "DELETE" | "SHARE";
+export type StrengthLevel = "very_weak" | "weak" | "fair" | "strong" | "very_strong";
+
+/** Metadata only: the secret is never part of a read response. */
+export interface Credential {
+  id: string;
+  title: string;
+  username: string;
+  service: string | null;
+  service_name: string | null;
+  secret_type: SecretType;
+  category: string;
+  tags: string[];
+  expires_at: string | null;
+  entropy_bits: number;
+  strength: StrengthLevel;
+  is_expired: boolean;
+  expires_soon: boolean;
+  password_age_days: number;
+  reuse_count: number;
+  owner_name: string;
+  permissions: VaultPermission[];
+  archived_at: string | null;
+  created_at: string;
+  updated_at: string;
+  password_changed_at: string;
+}
+
+export interface SecureNote {
+  id: string;
+  title: string;
+  category: string;
+  tags: string[];
+  expires_at: string | null;
+  owner_name: string;
+  permissions: VaultPermission[];
+  archived_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface TotpSetup {
   secret: string;
   otpauth_uri: string;

@@ -13,6 +13,8 @@ interface NavItem {
 
 const NAV: NavItem[] = [
   { to: "/", label: "Home" },
+  { to: "/vault", label: "Credentials" },
+  { to: "/vault/notes", label: "Secure notes" },
   { to: "/employees", label: "Employees", permission: "users.view" },
   { to: "/departments", label: "Departments" },
   { to: "/services", label: "Service catalog" },
@@ -54,7 +56,7 @@ export function AppLayout() {
             <NavLink
               key={item.to}
               to={item.to}
-              end={item.to === "/"}
+              end={item.to === "/" || item.to === "/vault"}
               onClick={() => setOpen(false)}
               className={({ isActive }) => `block rounded-md px-3 py-2 text-sm ${isActive ? "bg-white/10 font-medium text-white" : "hover:bg-white/5"}`}
             >

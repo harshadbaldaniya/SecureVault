@@ -80,3 +80,39 @@ def test_unicode_characters_widen_the_pool_without_crashing():
 
 def test_the_estimate_is_deterministic():
     assert estimate_entropy_bits("Xq7!Plaintext-Marker-9137") == estimate_entropy_bits("Xq7!Plaintext-Marker-9137")
+
+
+def test_the_estimate_does_not_depend_on_python_hash_randomisation():
+    """Regression: choosing 'the first common word found' by iterating a set varied between interpreter runs."""
+    import os
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    code = (
+        "import os,sys; sys.path.insert(0,'.'); os.environ['DJANGO_SETTINGS_MODULE']='config.settings';"
+        "from apps.vault.strength import estimate_entropy_bits as e;"
+        "print(e('passwordqwerty'), e('qwertypassword12'), e('welcomeadmin!'))"
+    )
+    backend_dir = Path(__file__).resolve().parents[1]
+    results = set()
+    for seed in ("1", "2", "3", "99"):
+        env = {**os.environ, "PYTHONHASHSEED": seed}
+        out = subprocess.run([sys.executable, "-I", "-c", code], cwd=backend_dir, env=env, capture_output=True, text=True, check=True)  # noqa: S603
+        results.add(out.stdout.strip())
+    assert len(results) == 1
+
+
+VECTORS_FILE = __import__("pathlib").Path(__file__).resolve().parents[2] / "shared" / "strength-vectors.json"
+
+
+@pytest.mark.skipif(not VECTORS_FILE.exists(), reason="shared vectors not present (e.g. backend-only container)")
+def test_estimator_matches_the_shared_vectors_used_by_the_frontend():
+    import json
+
+    vectors = json.loads(VECTORS_FILE.read_text(encoding="utf-8"))
+    assert len(vectors) >= 30
+    for vector in vectors:
+        bits = estimate_entropy_bits(vector["password"])
+        assert bits == vector["bits"], vector["password"]
+        assert strength_label(bits) == vector["label"], vector["password"]

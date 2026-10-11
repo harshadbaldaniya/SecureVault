@@ -1,0 +1,202 @@
+[
+ {
+  "password": "",
+  "bits": 0.0,
+  "label": "very_weak"
+ },
+ {
+  "password": "a",
+  "bits": 4.7,
+  "label": "very_weak"
+ },
+ {
+  "password": "abc",
+  "bits": 4.7,
+  "label": "very_weak"
+ },
+ {
+  "password": "password",
+  "bits": 4.0,
+  "label": "very_weak"
+ },
+ {
+  "password": "PASSWORD",
+  "bits": 4.0,
+  "label": "very_weak"
+ },
+ {
+  "password": "123456",
+  "bits": 4.0,
+  "label": "very_weak"
+ },
+ {
+  "password": "qwerty",
+  "bits": 4.0,
+  "label": "very_weak"
+ },
+ {
+  "password": "letmein",
+  "bits": 4.0,
+  "label": "very_weak"
+ },
+ {
+  "password": "hunter",
+  "bits": 28.2,
+  "label": "weak"
+ },
+ {
+  "password": "tangerine",
+  "bits": 42.3,
+  "label": "fair"
+ },
+ {
+  "password": "Tangerine42",
+  "bits": 65.5,
+  "label": "strong"
+ },
+ {
+  "password": "Tr0ub4dor&3-x",
+  "bits": 85.4,
+  "label": "very_strong"
+ },
+ {
+  "password": "Xq7!Plaintext-Marker-9137",
+  "bits": 164.2,
+  "label": "very_strong"
+ },
+ {
+  "password": "aaaaaaaaaaaaaaaa",
+  "bits": 4.7,
+  "label": "very_weak"
+ },
+ {
+  "password": "abcdefghijklmnop",
+  "bits": 4.7,
+  "label": "very_weak"
+ },
+ {
+  "password": "9876543210",
+  "bits": 3.3,
+  "label": "very_weak"
+ },
+ {
+  "password": "a1b2c3d4e5f6g7h8",
+  "bits": 82.7,
+  "label": "very_strong"
+ },
+ {
+  "password": "Xk9password",
+  "bits": 17.9,
+  "label": "very_weak"
+ },
+ {
+  "password": "Xk9plaintext",
+  "bits": 71.5,
+  "label": "strong"
+ },
+ {
+  "password": "passwordqwerty",
+  "bits": 28.2,
+  "label": "weak"
+ },
+ {
+  "password": "qwertypassword12",
+  "bits": 31.0,
+  "label": "weak"
+ },
+ {
+  "password": "welcomeadmin!",
+  "bits": 41.2,
+  "label": "fair"
+ },
+ {
+  "password": "xkqmvlpr",
+  "bits": 37.6,
+  "label": "fair"
+ },
+ {
+  "password": "xKqMvLpR",
+  "bits": 45.6,
+  "label": "fair"
+ },
+ {
+  "password": "xK9M!LpR",
+  "bits": 52.6,
+  "label": "fair"
+ },
+ {
+  "password": "correct horse battery staple",
+  "bits": 135.3,
+  "label": "very_strong"
+ },
+ {
+  "password": "пароль-Ключ-密码-9",
+  "bits": 107.9,
+  "label": "very_strong"
+ },
+ {
+  "password": "🙂🙂🔑🔑🔒🔒",
+  "bits": 12.0,
+  "label": "very_weak"
+ },
+ {
+  "password": "ABCDEFGH",
+  "bits": 4.7,
+  "label": "very_weak"
+ },
+ {
+  "password": "zyxwvuts",
+  "bits": 4.7,
+  "label": "very_weak"
+ },
+ {
+  "password": "abab abab",
+  "bits": 29.4,
+  "label": "weak"
+ },
+ {
+  "password": "!!!!!!!!",
+  "bits": 5.0,
+  "label": "very_weak"
+ },
+ {
+  "password": "P@ssw0rd!2026",
+  "bits": 78.8,
+  "label": "strong"
+ },
+ {
+  "password": "Aa1!Aa1!Aa1!Aa1!",
+  "bits": 105.1,
+  "label": "very_strong"
+ },
+ {
+  "password": "          ",
+  "bits": 5.0,
+  "label": "very_weak"
+ },
+ {
+  "password": "tab\tinside",
+  "bits": 47.1,
+  "label": "fair"
+ },
+ {
+  "password": "mixedCASEnoDigits",
+  "bits": 79.8,
+  "label": "strong"
+ },
+ {
+  "password": "ALLUPPER123456",
+  "bits": 10.3,
+  "label": "very_weak"
+ },
+ {
+  "password": "lower&symbols&only",
+  "bits": 100.0,
+  "label": "very_strong"
+ },
+ {
+  "password": "1234567890abcdefghij",
+  "bits": 5.2,
+  "label": "very_weak"
+ }
+]

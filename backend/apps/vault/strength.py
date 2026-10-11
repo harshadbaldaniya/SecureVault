@@ -19,6 +19,9 @@ COMMON_PASSWORDS = frozenset(
     }
 )
 _COMMON_WORD_MIN_LENGTH = 5
+_COMMON_WORDS_BY_PRIORITY = tuple(
+    sorted((w for w in COMMON_PASSWORDS if len(w) >= _COMMON_WORD_MIN_LENGTH), key=lambda w: (-len(w), w))
+)
 _SYMBOL_POOL = 33  # printable ASCII punctuation + space
 _OTHER_POOL = 64  # non-ASCII characters (conservative)
 
@@ -71,8 +74,9 @@ def estimate_entropy_bits(password: str) -> float:
         previous = char
 
     # Containing a well-known word costs the attacker about one guess, not one per character.
-    for word in COMMON_PASSWORDS:
-        if len(word) >= _COMMON_WORD_MIN_LENGTH and word in lowered and word != lowered:
+    # Fixed order (longest first, then alphabetical): set iteration order varies between runs.
+    for word in _COMMON_WORDS_BY_PRIORITY:
+        if word in lowered and word != lowered:
             effective -= len(word) - 1
             break
 
