@@ -67,6 +67,7 @@ INSTALLED_APPS = [
     # Order matters: each app registers its zero-trust gate check in ready(), in pipeline order.
     "apps.devices",  # device trust (6), anomaly policy (7)
     "apps.lockdown",  # lockdown (8)
+    "apps.imports",
 ]
 
 MIDDLEWARE = [
@@ -208,6 +209,11 @@ VAULT_KEY_PROVIDER = env("SV_VAULT_KEY_PROVIDER", "apps.vault.keys.EnvKeyProvide
 VAULT_KEK_KEYS = env("SV_VAULT_KEK_KEYS", required=True)  # wraps per-organization data keys
 VAULT_BLIND_INDEX_KEYS = env("SV_BLIND_INDEX_KEYS", required=True)  # HMAC key for reuse detection only
 VAULT_ARCHIVE_RETENTION_DAYS = 30  # archived items may be purged permanently after this long
+
+# --- Employee imports ---
+IMPORT_MAX_BYTES = 2 * 1024 * 1024
+IMPORT_MAX_ROWS = 5_000
+IMPORT_SYNC_ROW_LIMIT = 200  # larger files are queued for `manage.py run_worker`
 
 # --- Email (password reset). Dev default writes .eml files to backend/var/mail, never to logs. ---
 EMAIL_BACKEND = env("DJANGO_EMAIL_BACKEND", "django.core.mail.backends.filebased.EmailBackend")
