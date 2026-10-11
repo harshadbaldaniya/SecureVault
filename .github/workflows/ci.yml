@@ -140,4 +140,4 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Build, start with generated secrets, and verify headers, TLS, roles and authentication flow
-        run: ./infrastructure/scripts/smoke_prod.sh
+        run: bash infrastructure/scripts/smoke_prod.sh

@@ -87,7 +87,7 @@ SV_BLIND_INDEX_KEYS=$(key)
 SV_METRICS_TOKEN=${METRICS_TOKEN}
 DJANGO_EMAIL_BACKEND=django.core.mail.backends.dummy.EmailBackend
 EOF
-CERT_DIR="$CERT_DIR" FORCE=1 ./infrastructure/scripts/make_dev_cert.sh localhost >/dev/null 2>&1 || { echo "could not create the test certificate"; exit 1; }
+CERT_DIR="$CERT_DIR" FORCE=1 bash ./infrastructure/scripts/make_dev_cert.sh localhost >/dev/null 2>&1 || { echo "could not create the test certificate"; exit 1; }
 
 if "${compose[@]}" up -d --build --wait --wait-timeout 420; then
   ok "the stack builds, migrates and every service becomes healthy"
