@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 
 import { ShieldIcon, UsersIcon } from "@/components/icons";
 
-import { btnPrimary, btnSecondary, Footer, Header, ring } from "./PublicChrome";
+import { btnSecondary, Footer, Header } from "./PublicChrome";
 
 /**
  * Public "how do I get access" page. SecureVault has no self-registration: an organization administrator invites each
@@ -21,7 +21,7 @@ export function GetStartedPage() {
       <a href="#get-started-main" className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded focus:bg-white focus:px-3 focus:py-2 focus:text-slate-900">
         Skip to content
       </a>
-      <Header home="/" />
+      <Header home="/" onGetStarted />
       <main id="get-started-main" className="relative isolate flex-1 overflow-hidden">
         <div aria-hidden="true" className="absolute inset-0 -z-10 bg-[radial-gradient(50rem_26rem_at_75%_-10%,rgba(37,99,235,0.32),transparent),radial-gradient(34rem_22rem_at_0%_40%,rgba(14,165,233,0.12),transparent)]" />
         <div className="mx-auto max-w-3xl px-4 pb-20 pt-14 sm:px-6 lg:pt-20">
@@ -67,21 +67,11 @@ export function GetStartedPage() {
             </div>
           </section>
 
-          <div className="mt-10 flex flex-wrap items-center gap-3">
-            <Link to="/login" className={btnPrimary}>
-              Already have an account? Sign in
-            </Link>
+          <div className="mt-10">
             <Link to="/" className={btnSecondary}>
               Back to home
             </Link>
           </div>
-          <p className="mt-6 text-sm text-slate-400">
-            Forgot your password?{" "}
-            <Link to="/forgot-password" className={`rounded-sm font-medium text-sky-300 underline underline-offset-2 hover:text-white ${ring}`}>
-              Reset it here
-            </Link>
-            .
-          </p>
         </div>
       </main>
       <Footer home="/" />

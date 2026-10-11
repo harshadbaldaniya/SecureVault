@@ -123,14 +123,24 @@ describe("get-started page", () => {
     expect(screen.queryByLabelText(/password/i)).not.toBeInTheDocument();
   });
 
-  it("offers 'Already have an account? Sign in' as the primary action", async () => {
+  it("has no sign-in button or password-reset link, and Back to home returns to the landing page", async () => {
     const user = userEvent.setup();
     mockFetch({ "GET /auth/me/": unauthenticated });
     renderApp("/get-started");
-    const action = await screen.findByRole("link", { name: "Already have an account? Sign in" });
-    expect(action).toHaveAttribute("href", "/login");
-    await user.click(action);
-    expect(await screen.findByRole("heading", { name: "Sign in" })).toBeInTheDocument();
+    await screen.findByRole("heading", { level: 1, name: "Get started with SecureVault" });
+    const main = screen.getByRole("main");
+    expect(within(main).queryByRole("link", { name: /Already have an account/ })).not.toBeInTheDocument();
+    expect(within(main).queryByRole("link", { name: /Sign in/i })).not.toBeInTheDocument();
+    expect(within(main).queryByText(/Forgot your password/)).not.toBeInTheDocument();
+    expect(within(main).queryByRole("link", { name: /Reset it here/ })).not.toBeInTheDocument();
+    // The invitation guidance and contact instruction are still there.
+    expect(within(main).getByRole("heading", { name: "Need access? Contact your administrator" })).toBeInTheDocument();
+    expect(within(main).getAllByRole("listitem")).toHaveLength(3);
+    // The header's Sign In (a different place) is untouched.
+    expect(within(screen.getByRole("banner")).getByRole("link", { name: "Sign In" })).toHaveAttribute("href", "/login");
+
+    await user.click(within(main).getByRole("link", { name: "Back to home" }));
+    expect(await screen.findByRole("heading", { level: 1, name: /Under Control/ })).toBeInTheDocument();
   });
 
   it("links back to the landing sections with absolute paths so they work from this page", async () => {
@@ -139,6 +149,17 @@ describe("get-started page", () => {
     const header = await screen.findByRole("banner");
     expect(within(header).getByRole("link", { name: "Features" })).toHaveAttribute("href", "/#features");
     expect(within(header).getByRole("link", { name: "Sign In" })).toHaveAttribute("href", "/login");
-    expect(within(header).getByRole("link", { name: "Get Started" })).toHaveAttribute("href", "/get-started");
+    // You are already on the get-started page: its navigation keeps only Sign In.
+    expect(within(header).queryByRole("link", { name: "Get Started" })).not.toBeInTheDocument();
+  });
+
+  it("keeps only Sign In in the mobile menu of the get-started page", async () => {
+    const user = userEvent.setup();
+    mockFetch({ "GET /auth/me/": unauthenticated });
+    renderApp("/get-started");
+    await user.click(await screen.findByRole("button", { name: "Open menu" }));
+    const menu = screen.getByRole("navigation", { name: "Main mobile" });
+    expect(within(menu).getByRole("link", { name: "Sign In" })).toHaveAttribute("href", "/login");
+    expect(within(menu).queryByRole("link", { name: "Get Started" })).not.toBeInTheDocument();
   });
 });

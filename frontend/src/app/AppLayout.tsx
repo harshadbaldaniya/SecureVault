@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Suspense, useEffect, useRef, useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 
+import { BrandLogo } from "@/components/BrandLogo";
 import { Alert, Button, PageLoader, LinkButton } from "@/components/ui";
 import { useAuth } from "@/features/authentication/AuthContext";
 import { useDeviceRegistration } from "@/features/devices/deviceRegistration";
@@ -42,6 +43,7 @@ function LockdownScreen({ onSignOut }: { onSignOut: () => void }) {
   return (
     <main className="flex min-h-screen items-center justify-center p-4">
       <div role="alert" className="max-w-md rounded-lg bg-white p-8 text-center shadow ring-1 ring-red-200">
+        <BrandLogo tone="light" className="mb-6" />
         <p className="text-4xl" aria-hidden="true">
           ⛔
         </p>
@@ -105,17 +107,15 @@ export function AppLayout() {
       </a>
 
       <header className="flex shrink-0 items-center justify-between bg-slate-900 px-4 py-3 text-white lg:hidden">
-        <span className="font-bold">
-          Secure<span className="text-blue-400">Vault</span>
-        </span>
+        <BrandLogo />
         <button type="button" className="rounded px-3 py-1.5 text-sm ring-1 ring-white/30" aria-expanded={open} aria-controls="sidebar" onClick={() => setOpen((v) => !v)}>
           Menu
         </button>
       </header>
 
       <aside id="sidebar" className={`${open ? "flex" : "hidden"} no-scrollbar max-h-[70dvh] shrink-0 flex-col overflow-y-auto overscroll-contain bg-slate-900 text-slate-200 lg:flex lg:max-h-none lg:min-h-0 lg:w-64 lg:overflow-visible`}>
-        <div className="hidden shrink-0 px-6 py-5 text-xl font-bold text-white lg:block">
-          Secure<span className="text-blue-400">Vault</span>
+        <div className="hidden shrink-0 px-6 py-5 lg:block">
+          <BrandLogo size="lg" />
         </div>
         <div className="relative flex min-h-0 flex-1 flex-col">
           <nav ref={navRef} aria-label="Main" className="no-scrollbar min-h-0 flex-1 space-y-1 overflow-y-auto overflow-x-hidden overscroll-contain px-3 py-2">
