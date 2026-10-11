@@ -6,7 +6,7 @@
 # Stage 1 builds the SPA. Stage 2 is nginx (unprivileged: runs as uid 101, listens on 8080/8443) serving the build and
 # proxying /api and /ws to the backend. No Node, source or build tooling reaches the final image.
 
-FROM node:22-alpine AS build
+FROM node:25-alpine AS build
 WORKDIR /repo
 COPY frontend/package.json frontend/package-lock.json frontend/
 RUN cd frontend && npm ci
