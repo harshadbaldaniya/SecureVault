@@ -1,10 +1,13 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { createContext, useCallback, useContext, useEffect, useMemo, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 
-import { api, ApiError, setUnauthorizedHandler } from "@/services/api";
+import { api, ApiError, setLockdownHandler, setUnauthorizedHandler } from "@/services/api";
 import type { LoginResult, Me, Permission } from "@/types/api";
 
 const ME_KEY = ["auth", "me"] as const;
+
+/** Why the user was signed out without asking, shown on the sign-in screen. */
+export type SignOutReason = "session_ended" | "lockdown";
 
 interface AuthValue {
   user: Me | null;
@@ -14,6 +17,9 @@ interface AuthValue {
   /** Step 2 (only when login returned mfa_required). */
   verifyMfa: (code: string) => Promise<void>;
   logout: () => Promise<void>;
+  /** Local sign-out after the server ended the session (e.g. lockdown, suspension). */
+  endSession: (reason: SignOutReason) => void;
+  signOutReason: SignOutReason | null;
   refresh: () => Promise<void>;
   /** UI convenience only. The server enforces every permission independently. */
   can: (permission: Permission) => boolean;
@@ -23,6 +29,7 @@ const AuthContext = createContext<AuthValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
+  const [signOutReason, setSignOutReason] = useState<SignOutReason | null>(null);
 
   const meQuery = useQuery<Me | null>({
     queryKey: ME_KEY,
@@ -51,16 +58,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [queryClient],
   );
   const clearSession = useCallback(() => resetCache(null), [resetCache]);
+  const endSession = useCallback(
+    (reason: SignOutReason) => {
+      setSignOutReason(reason);
+      resetCache(null);
+    },
+    [resetCache],
+  );
+  const refresh = useCallback(async () => {
+    await queryClient.invalidateQueries({ queryKey: ME_KEY });
+  }, [queryClient]);
 
   useEffect(() => {
-    setUnauthorizedHandler(clearSession);
-    return () => setUnauthorizedHandler(null);
-  }, [clearSession]);
+    setUnauthorizedHandler(() => endSession("session_ended"));
+    setLockdownHandler(() => void refresh());
+    return () => {
+      setUnauthorizedHandler(null);
+      setLockdownHandler(null);
+    };
+  }, [endSession, refresh]);
 
   const login = useCallback(
     async (email: string, password: string) => {
       const result = await api.post<LoginResult>("/auth/login/", { email, password }, { skipUnauthorizedHandler: true });
-      if (!result.mfa_required && result.user) resetCache(result.user);
+      if (!result.mfa_required && result.user) {
+        setSignOutReason(null);
+        resetCache(result.user);
+      }
       return result;
     },
     [resetCache],
@@ -69,6 +93,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const verifyMfa = useCallback(
     async (code: string) => {
       const result = await api.post<LoginResult>("/auth/mfa/verify/", { code }, { skipUnauthorizedHandler: true });
+      setSignOutReason(null);
       resetCache(result.user);
     },
     [resetCache],
@@ -81,13 +106,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // The server session may outlive this failed request, but the user asked to leave:
       // always sign out locally and never surface an error from the sign-out button.
     } finally {
+      setSignOutReason(null);
       clearSession();
     }
   }, [clearSession]);
-
-  const refresh = useCallback(async () => {
-    await queryClient.invalidateQueries({ queryKey: ME_KEY });
-  }, [queryClient]);
 
   const user = meQuery.data ?? null;
   const value = useMemo<AuthValue>(
@@ -97,10 +119,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       login,
       verifyMfa,
       logout,
+      endSession,
+      signOutReason,
       refresh,
       can: (permission) => user?.permissions.includes(permission) ?? false,
     }),
-    [user, meQuery.isPending, login, verifyMfa, logout, refresh],
+    [user, meQuery.isPending, login, verifyMfa, logout, endSession, signOutReason, refresh],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

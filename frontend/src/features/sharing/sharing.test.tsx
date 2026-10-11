@@ -133,12 +133,12 @@ describe("access requests", () => {
     const dialog = await screen.findByRole("dialog");
     await user.click(within(dialog).getByRole("button", { name: "Send request" }));
     expect(await within(dialog).findByText(/Explain why you need access/)).toBeInTheDocument();
-    expect(calls.some((c) => c.method === "POST")).toBe(false);
+    expect(calls.some((c) => c.method === "POST" && c.path === "/access-requests/")).toBe(false);
 
     await user.type(within(dialog).getByLabelText("Reason"), "Month-end payroll run");
     await user.click(within(dialog).getByRole("button", { name: "Send request" }));
     await waitFor(() => expect(calls.some((c) => c.path === "/access-requests/" && c.method === "POST")).toBe(true));
-    expect(calls.find((c) => c.method === "POST")!.body).toEqual({ credential: "c9", permission: "VIEW", duration_hours: 8, reason: "Month-end payroll run" });
+    expect(calls.find((c) => c.method === "POST" && c.path === "/access-requests/")!.body).toEqual({ credential: "c9", permission: "VIEW", duration_hours: 8, reason: "Month-end payroll run" });
     expect(await screen.findByText("Request sent to Owen.")).toBeInTheDocument();
   });
 

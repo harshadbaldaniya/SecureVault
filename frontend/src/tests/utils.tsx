@@ -18,9 +18,24 @@ export interface FetchCall {
   headers: Record<string, string>;
 }
 
+export const DEFAULT_POLICY = {
+  id: "p", name: "Default", min_password_length: 14, require_uppercase: true, require_numbers: true, require_symbols: true,
+  max_password_age_days: 90, expiry_warning_days: 14, allow_view_once: true, max_share_duration_days: 30,
+  require_device_trust: false, require_mfa: false, block_on_high_risk: false, updated_at: "2026-10-11T00:00:00Z",
+};
+
+export const THIS_DEVICE = {
+  id: "d-1", name: "Chrome on Windows", user: "u-1", user_name: "Eve Example", user_email: "eve@acme.test", os: "Windows",
+  browser: "Chrome", trust_state: "PENDING", first_ip: "127.0.0.1", last_ip: "127.0.0.1", last_seen_at: "2026-10-11T00:00:00Z",
+  trust_changed_by_name: null, trust_changed_at: null, trust_reason: "", is_current: true, created_at: "2026-10-11T00:00:00Z",
+};
+
 /** Endpoints every signed-in page calls; tests may override them. */
 const DEFAULT_ROUTES: Routes = {
   "GET /notifications/unread-count/": { body: { unread: 0 } },
+  "POST /devices/register/": { body: THIS_DEVICE },
+  "GET /policy/": { body: DEFAULT_POLICY },
+  "GET /auth/csrf/": { status: 204 },
 };
 
 export function mockFetch(overrides: Routes) {
@@ -47,13 +62,18 @@ export function mockFetch(overrides: Routes) {
   return { calls, fn };
 }
 
+const SECURITY_OPERATIONS: Permission[] = [
+  "audit.view", "shares.revoke_any", "shares.view_all", "devices.manage", "alerts.manage", "lockdown.manage",
+];
+
 export const ALL_ADMIN_PERMISSIONS: Permission[] = [
-  "users.view", "users.manage", "invitations.manage", "departments.manage", "services.manage", "policies.manage", "audit.view",
+  "users.view", "users.manage", "invitations.manage", "departments.manage", "services.manage", "policies.manage",
+  ...SECURITY_OPERATIONS,
 ];
 
 const PERMISSIONS: Record<Role, Permission[]> = {
   ORG_ADMIN: ALL_ADMIN_PERMISSIONS,
-  SEC_ADMIN: ["users.view", "policies.manage", "audit.view"],
+  SEC_ADMIN: ["users.view", "policies.manage", ...SECURITY_OPERATIONS],
   EMPLOYEE: [],
 };
 
@@ -69,6 +89,7 @@ export function makeMe(role: Role = "EMPLOYEE", overrides: Partial<Me> = {}): Me
     permissions: PERMISSIONS[role],
     mfa_enabled: false,
     mfa_enrollment_required: false,
+    lockdown: null,
     ...overrides,
   };
 }

@@ -52,10 +52,12 @@ def test_unauthenticated_and_cross_origin_handshakes_are_refused(people):
     key = session_for(employee)
 
     async def scenario():
-        _, connected, code = await open_socket(None)
-        assert not connected and code == 4401
+        # Accepted only to deliver an unambiguous close code (a rejected handshake shows up as 1006 in browsers).
+        communicator, connected, _ = await open_socket(None)
+        assert connected
+        assert await communicator.receive_output(timeout=5) == {"type": "websocket.close", "code": 4401}
         _, connected, _ = await open_socket(key, origin=b"https://evil.example")
-        assert not connected  # cross-site WebSocket hijacking blocked by the origin check
+        assert not connected  # cross-site WebSocket hijacking: the handshake itself is rejected
 
     async_to_sync(scenario)()
 
@@ -141,7 +143,7 @@ def test_terminated_sessions_lose_their_socket(people):
 
         await sync_to_async(revoke_sessions)([employee])
         assert await communicator.receive_output(timeout=5) == {"type": "websocket.close", "code": 4401}
-        _, connected, code = await open_socket(key)  # the old session cannot reconnect
-        assert not connected and code == 4401
+        retry, _, _ = await open_socket(key)  # the old session cannot reconnect
+        assert await retry.receive_output(timeout=5) == {"type": "websocket.close", "code": 4401}
 
     async_to_sync(scenario)()

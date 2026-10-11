@@ -24,12 +24,18 @@ export class ApiError extends Error {
   }
 }
 
-type UnauthorizedHandler = () => void;
-let onUnauthorized: UnauthorizedHandler | null = null;
+type Handler = () => void;
+let onUnauthorized: Handler | null = null;
+let onLockdown: Handler | null = null;
 
 /** The auth provider registers this so any 401 returns the user to the sign-in screen. */
-export function setUnauthorizedHandler(handler: UnauthorizedHandler | null): void {
+export function setUnauthorizedHandler(handler: Handler | null): void {
   onUnauthorized = handler;
+}
+
+/** Called on any 423 (emergency lockdown) so the app can refresh the user's lockdown state. */
+export function setLockdownHandler(handler: Handler | null): void {
+  onLockdown = handler;
 }
 
 function readCookie(name: string): string | null {
@@ -99,6 +105,7 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
 
   if (!response.ok) {
     if (response.status === 401 && !options.skipUnauthorizedHandler) onUnauthorized?.();
+    if (response.status === 423) onLockdown?.();
     throw toApiError(response.status, payload);
   }
   return payload as T;

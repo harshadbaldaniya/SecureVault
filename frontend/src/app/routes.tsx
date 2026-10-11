@@ -2,6 +2,9 @@ import { Link, Navigate, Route, Routes } from "react-router-dom";
 
 import { AccessRequestsPage } from "@/features/access-requests/AccessRequestsPage";
 import { AuditPage } from "@/features/audit/AuditPage";
+import { AlertsPage } from "@/features/devices/AlertsPage";
+import { DevicesPage } from "@/features/devices/DevicesPage";
+import { LockdownPage } from "@/features/lockdown/LockdownPage";
 import { NotificationsPage } from "@/features/notifications/NotificationsPage";
 import { SharingPage } from "@/features/sharing/SharingPage";
 import { AcceptInvitePage, ForgotPasswordPage, ResetPasswordPage } from "@/features/authentication/PasswordPages";
@@ -52,6 +55,23 @@ export function AppRoutes() {
         <Route path="sharing" element={<SharingPage />} />
         <Route path="access-requests" element={<AccessRequestsPage />} />
         <Route path="notifications" element={<NotificationsPage />} />
+        <Route path="devices" element={<DevicesPage />} />
+        <Route
+          path="alerts"
+          element={
+            <ProtectedRoute permission="alerts.manage">
+              <AlertsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="lockdown"
+          element={
+            <ProtectedRoute permission="lockdown.manage">
+              <LockdownPage />
+            </ProtectedRoute>
+          }
+        />
         <Route path="departments" element={<DepartmentsPage />} />
         <Route path="services" element={<ServicesPage />} />
         <Route path="policy" element={<PolicyPage />} />

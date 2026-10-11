@@ -11,7 +11,12 @@ export type Permission =
   | "departments.manage"
   | "services.manage"
   | "policies.manage"
-  | "audit.view";
+  | "audit.view"
+  | "shares.revoke_any"
+  | "shares.view_all"
+  | "devices.manage"
+  | "alerts.manage"
+  | "lockdown.manage";
 
 export interface Me {
   id: string;
@@ -24,6 +29,78 @@ export interface Me {
   permissions: Permission[];
   mfa_enabled: boolean;
   mfa_enrollment_required: boolean;
+  /** The active lockdown that applies to this user, if any. */
+  lockdown: ActiveLockdown | null;
+}
+
+export interface ActiveLockdown {
+  id: string;
+  scope: "GLOBAL" | "USER";
+  target_user_id: string | null;
+  triggered_at: string;
+  is_active: boolean;
+}
+
+export type TrustState = "PENDING" | "TRUSTED" | "SUSPENDED" | "REVOKED";
+
+export interface Device {
+  id: string;
+  name: string;
+  user: string;
+  user_name: string;
+  user_email: string;
+  os: string;
+  browser: string;
+  trust_state: TrustState;
+  first_ip: string | null;
+  last_ip: string | null;
+  last_seen_at: string | null;
+  trust_changed_by_name: string | null;
+  trust_changed_at: string | null;
+  trust_reason: string;
+  is_current: boolean;
+  created_at: string;
+}
+
+export interface DeviceEvent {
+  id: number;
+  kind: string;
+  ip_address: string | null;
+  details: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface AnomalyAlert {
+  id: string;
+  type: string;
+  severity: "LOW" | "MEDIUM" | "HIGH";
+  status: "OPEN" | "ACKNOWLEDGED" | "DISMISSED";
+  summary: string;
+  details: Record<string, unknown>;
+  user: string;
+  user_name: string;
+  device: string | null;
+  device_name: string | null;
+  ip_address: string | null;
+  reviewed_by_name: string | null;
+  reviewed_at: string | null;
+  review_note: string;
+  created_at: string;
+}
+
+export interface Lockdown {
+  id: string;
+  scope: "GLOBAL" | "USER";
+  target_user: string | null;
+  target_user_name: string | null;
+  reason: string;
+  initiated_by_name: string;
+  triggered_at: string;
+  is_active: boolean;
+  terminated_session_count: number;
+  resolved_at: string | null;
+  resolved_by_name: string | null;
+  resolution_note: string;
 }
 
 export interface LoginResult {
@@ -102,6 +179,7 @@ export interface SecurityPolicy {
   max_share_duration_days: number;
   require_device_trust: boolean;
   require_mfa: boolean;
+  block_on_high_risk: boolean;
   updated_at: string;
 }
 

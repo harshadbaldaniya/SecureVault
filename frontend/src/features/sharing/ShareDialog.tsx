@@ -10,7 +10,7 @@ import { DelegationTree, PERMISSION_TEXT } from "./DelegationTree";
 
 const message = (e: unknown) => (e instanceof ApiError ? e.message : "Something went wrong. Please try again.");
 
-function PersonPicker({ selected, onSelect }: { selected: Person | null; onSelect: (p: Person | null) => void }) {
+export function PersonPicker({ selected, onSelect, label = "Share with" }: { selected: Person | null; onSelect: (p: Person | null) => void; label?: string }) {
   const [search, setSearch] = useState("");
   const debounced = useDebounced(search);
   const people = useQuery({
@@ -33,7 +33,7 @@ function PersonPicker({ selected, onSelect }: { selected: Person | null; onSelec
   }
   return (
     <div>
-      <Field label="Share with" hint="Type at least 2 letters of a name or email.">
+      <Field label={label} hint="Type at least 2 letters of a name or email.">
         {(props) => <Input {...props} type="search" value={search} onChange={(e) => setSearch(e.target.value)} autoComplete="off" />}
       </Field>
       {people.data && (

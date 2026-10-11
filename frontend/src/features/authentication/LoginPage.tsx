@@ -25,8 +25,13 @@ function safeNext(state: unknown): string {
   return from && from.startsWith("/") && !from.startsWith("//") ? from : "/";
 }
 
+const SIGN_OUT_TEXT = {
+  session_ended: "Your session ended (for example, your account or device was suspended). Please sign in again.",
+  lockdown: "You were signed out because the security team started an emergency lockdown. Sign-in may be refused until it is lifted.",
+} as const;
+
 export function LoginPage() {
-  const { user, login, verifyMfa } = useAuth();
+  const { user, login, verifyMfa, signOutReason } = useAuth();
   const location = useLocation();
   const [step, setStep] = useState<"password" | "mfa">("password");
   const [formError, setFormError] = useState<string | null>(null);
@@ -85,6 +90,7 @@ export function LoginPage() {
   return (
     <AuthLayout key="password-step" title="Sign in" subtitle="Use your work account.">
       <form onSubmit={submitCredentials} noValidate className="space-y-4">
+        {signOutReason && !formError && <Alert tone={signOutReason === "lockdown" ? "warning" : "info"}>{SIGN_OUT_TEXT[signOutReason]}</Alert>}
         {formError && <Alert tone="error">{formError}</Alert>}
         <Field label="Email" error={credentials.formState.errors.email?.message}>
           {(props) => <Input {...props} type="email" autoComplete="username" autoFocus {...credentials.register("email")} />}

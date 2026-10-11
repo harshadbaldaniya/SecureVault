@@ -31,11 +31,16 @@ class EventsConsumer(AsyncJsonWebsocketConsumer):
     async def connect(self):
         user = self.scope.get("user")
         self.joined: list[str] = []
+        # Refusals accept first and then close with an application code. Rejecting the handshake itself would
+        # surface in browsers as an anonymous 1006, indistinguishable from "server unreachable", and the client
+        # would keep retrying. No data is sent before the close.
         if user is None or not user.is_authenticated:
+            await self.accept()
             await self.close(code=CLOSE_UNAUTHENTICATED)
             return
         state = await database_sync_to_async(_handshake_state)(user)
         if not state["allowed"]:
+            await self.accept()
             await self.close(code=CLOSE_UNAUTHENTICATED)
             return
         await self.accept()

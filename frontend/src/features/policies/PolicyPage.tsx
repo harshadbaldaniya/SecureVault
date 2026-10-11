@@ -23,6 +23,7 @@ const schema = z.object({
   max_share_duration_days: int(1, 365, "share duration"),
   require_device_trust: z.boolean(),
   require_mfa: z.boolean(),
+  block_on_high_risk: z.boolean(),
 });
 type FormInput = z.input<typeof schema>;
 type FormOutput = z.output<typeof schema>;
@@ -119,8 +120,11 @@ export function PolicyPage() {
           <div className="space-y-2">
             <Checkbox label="Require multi-factor authentication for everyone" disabled={readOnly} {...form.register("require_mfa")} />
             <Checkbox label="Require a trusted device for sensitive operations" disabled={readOnly} {...form.register("require_device_trust")} />
+            <Checkbox label="Pause a user's sensitive actions while a high-severity alert about them is open" disabled={readOnly} {...form.register("block_on_high_risk")} />
           </div>
-          <p className="mt-3 text-xs text-slate-500">Device trust is stored now and enforced once device registration ships.</p>
+          <p className="mt-3 text-xs text-slate-500">
+            With device trust required, every device (including administrators' own) must be approved by another device administrator before it can reveal or change secrets. A sole administrator can use the server console command <code>approve_device</code> once.
+          </p>
         </Card>
 
         {canManage && (
