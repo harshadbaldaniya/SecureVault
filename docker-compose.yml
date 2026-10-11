@@ -31,6 +31,7 @@ services:
     env_file: .env
     environment:
       POSTGRES_HOST: db
+      POSTGRES_PORT: "5432" # the port inside the network, whatever host port .env maps for tools on your machine
       REDIS_URL: redis://redis:6379/0
     command: sh -c "python manage.py migrate --noinput && daphne -b 0.0.0.0 -p 8000 config.asgi:application"
     ports:

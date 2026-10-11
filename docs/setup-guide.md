@@ -27,8 +27,9 @@ refuses to overwrite an existing file. `.env` is git-ignored; **never commit it*
 credentials you store with them unreadable, so back it up if the data matters.
 
 > If you already have a PostgreSQL or Redis on port 5432/6379/8000, set `SV_DB_PORT`, `SV_REDIS_PORT` or `SV_API_PORT` in
-> `.env` before the next step (and use `127.0.0.1`, not `localhost`, for `POSTGRES_HOST`/`REDIS_URL` on Windows; the
-> `.env.example` default already does).
+> `.env` before the next step. The backend container always uses the standard ports inside Docker's network; to run the
+> tests from your machine against the remapped ports, also change `POSTGRES_PORT` and the port in `REDIS_URL` to match.
+> Use `127.0.0.1`, not `localhost`, for `POSTGRES_HOST`/`REDIS_URL` on Windows (the `.env.example` default already does).
 
 ## 2. Start the backend, database and Redis
 
