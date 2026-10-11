@@ -5,7 +5,9 @@ django-filter==26.2
 channels==4.3.2
 channels_redis==4.3.0
 daphne==4.2.3
-psycopg[binary]==3.3.6
+psycopg[binary,pool]==3.3.6
+# Connection pool used when SV_DB_POOL is on (Django's native psycopg pool support).
+psycopg-pool==3.3.3
 redis==8.1.0
 cryptography==50.0.2
 argon2-cffi==25.1.0
@@ -16,3 +18,5 @@ defusedxml==0.7.1
 reportlab==5.0.1
 PyOTP==2.10.0
 python-dotenv==1.2.4
+# Operational metrics at /api/v1/metrics/ (bearer-token protected, off unless SV_METRICS_TOKEN is set).
+prometheus-client==0.26.0

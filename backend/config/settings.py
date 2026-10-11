@@ -13,11 +13,14 @@ from pathlib import Path
 from django.core.exceptions import ImproperlyConfigured
 from dotenv import load_dotenv
 
+from core.logs import logging_config
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 REPO_ROOT = BASE_DIR.parent
 
-# Real environment variables always win over the .env file.
-load_dotenv(REPO_ROOT / ".env", override=False)
+# Real environment variables always win over the .env file. SV_ENV_FILE points somewhere else (tests use an empty
+# file so the developer's .env cannot fill in a variable that a test deliberately leaves unset).
+load_dotenv(os.environ.get("SV_ENV_FILE") or REPO_ROOT / ".env", override=False)
 
 
 def env(name: str, default: str | None = None, *, required: bool = False) -> str:
@@ -73,6 +76,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "core.request_context.RequestContextMiddleware",
+    "core.observability.ObservabilityMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -100,6 +104,11 @@ TEMPLATES = [
 ]
 
 # --- Database (PostgreSQL only; concurrency guarantees depend on it) ---
+# CONN_MAX_AGE is 0 (close the connection after each request) in every mode. Django advises against persistent
+# connections under ASGI, and the development stack showed why: with CONN_MAX_AGE=60 under Daphne, idle connections
+# (each last used by a health check) piled up at roughly one every minute and were never reused. Production avoids
+# the per-request connect cost with psycopg's connection pool (Django 5.1+) instead.
+DB_POOL = env_bool("SV_DB_POOL", not DEBUG)
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
@@ -108,11 +117,18 @@ DATABASES = {
         "PASSWORD": env("POSTGRES_PASSWORD", required=True),
         "HOST": env("POSTGRES_HOST", "localhost"),
         "PORT": env("POSTGRES_PORT", "5432"),
-        "CONN_MAX_AGE": 60,
+        "CONN_MAX_AGE": 0,
         "CONN_HEALTH_CHECKS": True,
         "OPTIONS": {"connect_timeout": 5},
     }
 }
+if DB_POOL:
+    DATABASES["default"]["OPTIONS"]["pool"] = {
+        "min_size": int(env("SV_DB_POOL_MIN", "2")),
+        "max_size": int(env("SV_DB_POOL_MAX", "10")),
+        "timeout": float(env("SV_DB_POOL_TIMEOUT", "10")),  # seconds to wait for a free connection before failing
+        "max_lifetime": 30 * 60,
+    }
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 AUTH_USER_MODEL = "accounts.User"
@@ -142,12 +158,12 @@ AUTH_PASSWORD_VALIDATORS = [
 SESSION_ENGINE = "django.contrib.sessions.backends.db"
 SESSION_COOKIE_NAME = "sv_session"
 SESSION_COOKIE_HTTPONLY = True
-SESSION_COOKIE_SAMESITE = "Lax"
+SESSION_COOKIE_SAMESITE = "Strict"  # the SPA and the API share an origin, so no cross-site request needs the cookie
 SESSION_COOKIE_AGE = 60 * 60 * 8  # 8-hour absolute lifetime
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True
 CSRF_COOKIE_NAME = "sv_csrftoken"
 CSRF_COOKIE_HTTPONLY = False  # SPA reads it to send X-CSRFToken; it is not a secret on its own
-CSRF_COOKIE_SAMESITE = "Lax"
+CSRF_COOKIE_SAMESITE = "Strict"
 
 SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_REFERRER_POLICY = "same-origin"
@@ -160,6 +176,11 @@ if not DEBUG:
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
     SECURE_HSTS_SECONDS = 60 * 60 * 24 * 365
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    # Orchestrator probes and the metrics scraper reach the app over the private network without TLS.
+    SECURE_REDIRECT_EXEMPT = [r"^api/v1/health/$", r"^api/v1/metrics/$"]
+    # security.W021 asks for HSTS preloading. That commits the whole domain to browsers' preload lists for months,
+    # so it is a decision for the domain owner (see docs/deployment-guide.md), not a default.
+    SILENCED_SYSTEM_CHECKS = ["security.W021"]
 
 # --- Upload limits (Excel imports are validated again in the import app) ---
 DATA_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024
@@ -168,6 +189,9 @@ FILE_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024
 # --- REST framework ---
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": ["core.authentication.SessionAuthentication"],
+    # JSON only: no browsable API (an HTML form surface) and no form-encoded bodies. Upload views opt in to multipart.
+    "DEFAULT_RENDERER_CLASSES": ["rest_framework.renderers.JSONRenderer"],
+    "DEFAULT_PARSER_CLASSES": ["rest_framework.parsers.JSONParser"],
     # Secure default: every endpoint requires an ACTIVE user in an ACTIVE organization
     # unless a view explicitly opts out.
     "DEFAULT_PERMISSION_CLASSES": ["core.permissions.IsActiveMember"],
@@ -182,9 +206,10 @@ REST_FRAMEWORK = {
     "EXCEPTION_HANDLER": "core.exceptions.api_exception_handler",
     # `?format=` is ours (report exports), not DRF's renderer override.
     "URL_FORMAT_OVERRIDE": None,
+    # These fail open if Redis is unreachable; credential entry points use StrictScopedRateThrottle and fail closed.
     "DEFAULT_THROTTLE_CLASSES": [
-        "rest_framework.throttling.AnonRateThrottle",
-        "rest_framework.throttling.UserRateThrottle",
+        "core.throttling.AnonRateThrottle",
+        "core.throttling.UserRateThrottle",
     ],
     "DEFAULT_THROTTLE_RATES": {
         "anon": "60/min",
@@ -232,11 +257,17 @@ EMAIL_USE_TLS = env_bool("DJANGO_EMAIL_USE_TLS", True)
 EMAIL_TIMEOUT = 10
 DEFAULT_FROM_EMAIL = env("DJANGO_DEFAULT_FROM_EMAIL", "SecureVault <no-reply@securevault.local>")
 
+# --- API documentation and operations endpoints ---
+ENABLE_API_DOCS = env_bool("SV_ENABLE_API_DOCS", DEBUG)  # /api/v1/schema/ and /api/v1/docs/ (404 when off)
+METRICS_TOKEN = env("SV_METRICS_TOKEN", "")  # bearer token for /api/v1/metrics/; empty = endpoint disabled
+if METRICS_TOKEN and len(METRICS_TOKEN) < 32:
+    raise ImproperlyConfigured("SV_METRICS_TOKEN must be at least 32 characters (or unset to disable metrics).")
+
 SPECTACULAR_SETTINGS = {
     "TITLE": "SecureVault API",
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
-    "SERVE_PERMISSIONS": ["rest_framework.permissions.IsAuthenticated"],
+    "SERVE_PERMISSIONS": ["core.permissions.ApiDocsEnabled", "rest_framework.permissions.IsAuthenticated"],
     "ENUM_NAME_OVERRIDES": {
         "UserStatusEnum": "apps.accounts.models.User.Status",
         "DepartmentStatusEnum": "apps.departments.models.Department.Status",
@@ -262,14 +293,6 @@ USE_TZ = True
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
-LOGGING = {
-    "version": 1,
-    "disable_existing_loggers": False,
-    "formatters": {
-        "plain": {"format": "%(asctime)s %(levelname)s %(name)s %(message)s"},
-    },
-    "handlers": {"console": {"class": "logging.StreamHandler", "formatter": "plain"}},
-    "root": {"handlers": ["console"], "level": "INFO"},
-    # Never log request bodies; DisallowedHost spam is noise.
-    "loggers": {"django.security.DisallowedHost": {"handlers": [], "propagate": False}},
-}
+# --- Logging: one JSON object per line in production (see core/logs.py); never request bodies or secrets ---
+LOG_JSON = env_bool("SV_LOG_JSON", not DEBUG)
+LOGGING = logging_config(json_output=LOG_JSON, level=env("SV_LOG_LEVEL", "INFO").upper())

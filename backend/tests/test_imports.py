@@ -121,6 +121,16 @@ def test_large_imports_are_queued_for_the_worker(client_for, admin, settings):
     assert run_queued() == 0  # nothing left
 
 
+def test_worker_touches_its_heartbeat_file_every_pass(tmp_path):
+    heartbeat = tmp_path / "heartbeat"
+    call_command("run_worker", "--once", "--heartbeat-file", str(heartbeat))
+    first = heartbeat.stat().st_mtime_ns
+    call_command("run_worker", "--once", "--heartbeat-file", str(heartbeat))
+    assert heartbeat.stat().st_mtime_ns >= first
+    call_command("run_worker", "--once")  # the option is optional
+    assert not (tmp_path / "other").exists()
+
+
 # --------------------------------------------------------------------------- hostile and malformed files
 
 

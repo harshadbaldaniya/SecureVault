@@ -10,7 +10,6 @@ from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
-from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
 from apps.audit import services as audit
@@ -22,6 +21,7 @@ from core.exceptions import ServiceError
 from core.http import no_store
 from core.permissions import Perm, requires
 from core.tenancy import OrgScopedQuerysetMixin
+from core.throttling import StrictScopedRateThrottle
 
 from . import mfa, services
 from .models import Invitation, User
@@ -115,7 +115,7 @@ class LoginView(APIView):
 
     permission_classes = [AllowAny]
     authentication_classes = []
-    throttle_classes = [ScopedRateThrottle]
+    throttle_classes = [StrictScopedRateThrottle]
     throttle_scope = "login"
 
     @extend_schema(request=LoginSerializer, responses={200: LoginResultSerializer})
@@ -155,7 +155,7 @@ class MfaVerifyView(APIView):
 
     permission_classes = [AllowAny]
     authentication_classes = []
-    throttle_classes = [ScopedRateThrottle]
+    throttle_classes = [StrictScopedRateThrottle]
     throttle_scope = "login"
 
     @extend_schema(request=MfaCodeSerializer, responses={200: LoginResultSerializer})
@@ -217,7 +217,7 @@ class MeView(APIView):
 class AcceptInvitationView(APIView):
     permission_classes = [AllowAny]
     authentication_classes = []
-    throttle_classes = [ScopedRateThrottle]
+    throttle_classes = [StrictScopedRateThrottle]
     throttle_scope = "invitation_accept"
 
     @extend_schema(request=AcceptInvitationSerializer, responses={200: DetailSerializer})
@@ -293,7 +293,7 @@ class PasswordChangeView(APIView):
 class PasswordResetRequestView(APIView):
     permission_classes = [AllowAny]
     authentication_classes = []
-    throttle_classes = [ScopedRateThrottle]
+    throttle_classes = [StrictScopedRateThrottle]
     throttle_scope = "password_reset"
 
     @extend_schema(request=PasswordResetRequestSerializer, responses={202: DetailSerializer})
@@ -313,7 +313,7 @@ class PasswordResetRequestView(APIView):
 class PasswordResetConfirmView(APIView):
     permission_classes = [AllowAny]
     authentication_classes = []
-    throttle_classes = [ScopedRateThrottle]
+    throttle_classes = [StrictScopedRateThrottle]
     throttle_scope = "password_reset"
 
     @extend_schema(request=PasswordResetConfirmSerializer, responses={200: DetailSerializer})

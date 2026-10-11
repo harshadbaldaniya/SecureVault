@@ -1,12 +1,14 @@
 """Standard API error envelope: {"error": {"code", "message", "details"}}.
 
 Unexpected exceptions are logged server-side and returned as a generic 500,
-so stack traces, SQL and secret-bearing values never reach the client.
+so stack traces, SQL and secret-bearing values never reach the client. A database or Redis that cannot be
+reached (or a transient lock failure) is a 503 with Retry-After, never a 500 and never a message naming the host.
 """
 
 import logging
 
-from django.db import IntegrityError
+import redis
+from django.db import IntegrityError, InterfaceError, OperationalError
 from django.db.models import ProtectedError
 from rest_framework import exceptions, status
 from rest_framework.response import Response
@@ -29,6 +31,19 @@ class ServiceError(exceptions.APIException):
             self.status_code = status_code
 
 
+# Failures of the services we depend on. Transient by nature, so the client is told to retry.
+UNAVAILABLE = (OperationalError, InterfaceError, redis.exceptions.RedisError)
+UNAVAILABLE_MESSAGE = "This service is temporarily unavailable. Please try again in a moment."
+RETRY_AFTER_SECONDS = "5"
+
+
+class ServiceUnavailable(ServiceError):
+    """A dependency this request needs is not available (503)."""
+
+    def __init__(self, message: str = UNAVAILABLE_MESSAGE):
+        super().__init__(message, "service_unavailable", status_code=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+
 def _error(code: str, message: str, http_status: int, details=None, headers=None) -> Response:
     body = {"error": {"code": code, "message": message}}
     if details is not None:
@@ -38,12 +53,26 @@ def _error(code: str, message: str, http_status: int, details=None, headers=None
 
 def api_exception_handler(exc, context):
     if isinstance(exc, ServiceError):
-        return _error(exc.error_code, str(exc.detail), exc.status_code, details=exc.details)
+        headers = (
+            {"Retry-After": RETRY_AFTER_SECONDS} if exc.status_code == status.HTTP_503_SERVICE_UNAVAILABLE else None
+        )
+        return _error(exc.error_code, str(exc.detail), exc.status_code, details=exc.details, headers=headers)
     if isinstance(exc, ProtectedError):
         return _error("conflict", "This record is still in use and cannot be deleted.", status.HTTP_409_CONFLICT)
     if isinstance(exc, IntegrityError):
         logger.warning("Integrity error in %s", context.get("view").__class__.__name__)
         return _error("conflict", "The request conflicts with existing data.", status.HTTP_409_CONFLICT)
+
+    if isinstance(exc, UNAVAILABLE):
+        logger.error(
+            "A dependency was unavailable in %s (%s)", context.get("view").__class__.__name__, type(exc).__name__
+        )
+        return _error(
+            "service_unavailable",
+            UNAVAILABLE_MESSAGE,
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            headers={"Retry-After": RETRY_AFTER_SECONDS},
+        )
 
     response = exception_handler(exc, context)
     if response is None:

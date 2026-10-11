@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 
 CLOSE_UNAUTHENTICATED = 4401
 CLOSE_LOCKDOWN = 4423
+CLOSE_UNAVAILABLE = 1011  # RFC 6455 "internal error": the real-time layer is down; clients back off and retry
 
 
 def user_group(user_id) -> str:

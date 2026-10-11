@@ -10,15 +10,16 @@ from drf_spectacular.utils import extend_schema
 from rest_framework import generics, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.throttling import ScopedRateThrottle, UserRateThrottle
 
 from apps.audit import services as audit
 from apps.audit.models import AuditAction, AuditOutcome
 from apps.policies.models import policy_for
 from apps.sharing import services as sharing_services
+from apps.sharing.access import prefetch_share_access
 from apps.sharing.models import Share
 from apps.sharing.serializers import ShareCreateSerializer, ShareSerializer
 from core.http import no_store
+from core.throttling import ScopedRateThrottle, UserRateThrottle
 
 from . import services
 from .models import Credential, SecureNote
@@ -196,6 +197,12 @@ class CredentialViewSet(VaultItemViewSet):
         if getattr(self.request, "user", None) and self.request.user.is_authenticated:
             context["expiry_warning_days"] = policy_for(self.request.user.organization).expiry_warning_days
         return context
+
+    def paginate_queryset(self, queryset):
+        page = super().paginate_queryset(queryset)
+        if page is not None:
+            prefetch_share_access(self.request.user, page)  # grants for the whole page in a constant number of queries
+        return page
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)

@@ -4,6 +4,7 @@ Views stay thin and call these functions; every multi-step change runs in a tran
 """
 
 import hashlib
+import logging
 import secrets
 from datetime import timedelta
 
@@ -13,16 +14,19 @@ from django.contrib.auth.password_validation import validate_password
 from django.contrib.sessions.models import Session
 from django.core.cache import cache
 from django.core.exceptions import ValidationError as DjangoValidationError
-from django.core.mail import send_mail
 from django.db import transaction
 from django.utils import timezone
 
 from apps.audit import services as audit
 from apps.audit.models import AuditAction
-from core.exceptions import ServiceError
+from core.exceptions import ServiceError, ServiceUnavailable
+from core.mail import send_safely
 from core.realtime import close_user_sockets
+from core.throttling import CACHE_ERRORS
 
 from .models import Invitation, PasswordResetToken, User, UserSession
+
+logger = logging.getLogger(__name__)
 
 # --------------------------------------------------------------------------- login lockout
 
@@ -34,17 +38,29 @@ def _failure_key(email: str) -> str:
 
 
 def is_login_locked(email: str) -> bool:
-    return cache.get(_failure_key(email), 0) >= settings.LOGIN_LOCKOUT_THRESHOLD
+    """Checked before the password is verified. If the counters cannot be read, sign-in is refused (503) rather
+    than allowing unlimited guesses; people who are already signed in are not affected."""
+    try:
+        return cache.get(_failure_key(email), 0) >= settings.LOGIN_LOCKOUT_THRESHOLD
+    except CACHE_ERRORS as exc:
+        logger.error("Sign-in refused: lockout counters unavailable (%s)", type(exc).__name__)
+        raise ServiceUnavailable() from None
 
 
 def record_login_failure(email: str) -> None:
     key = _failure_key(email)
-    cache.add(key, 0, timeout=settings.LOGIN_LOCKOUT_SECONDS)
-    cache.incr(key)
+    try:
+        cache.add(key, 0, timeout=settings.LOGIN_LOCKOUT_SECONDS)
+        cache.incr(key)
+    except CACHE_ERRORS as exc:  # is_login_locked() would already have refused this attempt if the cache was down
+        logger.warning("Could not record a failed sign-in (%s)", type(exc).__name__)
 
 
 def clear_login_failures(email: str) -> None:
-    cache.delete(_failure_key(email))
+    try:
+        cache.delete(_failure_key(email))
+    except CACHE_ERRORS as exc:
+        logger.warning("Could not clear sign-in failures (%s)", type(exc).__name__)
 
 
 # --------------------------------------------------------------------------- sessions
@@ -244,13 +260,13 @@ def request_password_reset(email: str) -> None:
     raw_token = _issue_reset_token(user, issued_by=None)
     audit.record(AuditAction.PASSWORD_RESET_REQUEST, organization=user.organization, target=user, target_type="user")
     link = password_reset_url(raw_token)
-    # Sent only after the transaction commits, so a rolled-back request never emails a dead link.
+    # Sent only after the transaction commits, so a rolled-back request never emails a dead link. Delivery failures
+    # are logged, never raised: an error only for real accounts would reveal which accounts exist.
     transaction.on_commit(
-        lambda: send_mail(
+        lambda: send_safely(
             "SecureVault password reset",
             f"Use this link within {settings.PASSWORD_RESET_TTL_MINUTES} minutes to choose a new password:\n\n"
             f"{link}\n\nIf you did not ask for this, ignore this email.",
-            None,
             [user.email],
         )
     )

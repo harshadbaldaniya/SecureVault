@@ -5,7 +5,6 @@ import logging
 import os
 
 from django.conf import settings
-from django.core.mail import send_mail
 from django.db import transaction
 from django.utils import timezone
 
@@ -17,6 +16,7 @@ from apps.departments.models import Department
 from apps.notifications.models import Notification
 from apps.notifications.services import notify
 from core.exceptions import ServiceError
+from core.mail import send_safely
 
 from .models import ImportJob
 from .parser import FileRejected, ParsedRow, check_upload, parse_rows, validate_rows
@@ -31,11 +31,10 @@ def _safe_name(name: str) -> str:
 
 def _send_invitation(email: str, full_name: str, organization_name: str, raw_token: str) -> None:
     link = accounts.invitation_url(raw_token)
-    send_mail(
+    send_safely(  # a mail failure must not fail the import: the invitation exists and can be re-sent
         f"You're invited to {organization_name} on SecureVault",
         f"Hello {full_name},\n\nActivate your SecureVault account within {settings.INVITATION_TTL_HOURS} hours:\n\n"
         f"{link}\n\nIf you were not expecting this, ignore this email.",
-        None,
         [email],
     )
 

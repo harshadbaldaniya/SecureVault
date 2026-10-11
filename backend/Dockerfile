@@ -1,4 +1,10 @@
-FROM python:3.13-slim
+# syntax=docker/dockerfile:1
+#
+# Two targets share one dependency layer:
+#   prod  - runtime dependencies only, application code only (no tests, no dev tooling). Used by docker-compose.prod.yml.
+#   dev   - adds pytest/ruff and the tests so the suite can run inside the container. Used by docker-compose.yml.
+
+FROM python:3.13-slim AS base
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -7,14 +13,27 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# Dev dependencies are included so tests can run inside the container.
-COPY requirements.txt requirements-dev.txt ./
-RUN pip install -r requirements-dev.txt
+COPY requirements.txt ./
+RUN pip install -r requirements.txt
 
 # Run as an unprivileged user.
 RUN useradd --create-home --uid 10001 appuser
+
+
+FROM base AS prod
+COPY --chown=appuser:appuser manage.py ./
+COPY --chown=appuser:appuser config ./config
+COPY --chown=appuser:appuser core ./core
+COPY --chown=appuser:appuser apps ./apps
+USER appuser
+EXPOSE 8000
+CMD ["daphne", "-b", "0.0.0.0", "-p", "8000", "config.asgi:application"]
+
+
+FROM base AS dev
+COPY requirements-dev.txt ./
+RUN pip install -r requirements-dev.txt
 COPY --chown=appuser:appuser . .
 USER appuser
-
 EXPOSE 8000
 CMD ["daphne", "-b", "0.0.0.0", "-p", "8000", "config.asgi:application"]

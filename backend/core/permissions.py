@@ -5,6 +5,7 @@ Resource-level checks (credential shares, device trust, lockdown) are added
 by later phases on top of these; a role alone never grants access to a secret.
 """
 
+from django.conf import settings
 from rest_framework import exceptions
 from rest_framework.permissions import SAFE_METHODS, BasePermission
 
@@ -89,6 +90,19 @@ class IsActiveMember(BasePermission):
                     "Your organization requires multi-factor authentication. Set it up to continue.",
                     code="mfa_enrollment_required",
                 )
+        return True
+
+
+class ApiDocsEnabled(BasePermission):
+    """Hides the OpenAPI schema and Swagger UI (404, as if the routes did not exist) unless SV_ENABLE_API_DOCS is on.
+
+    Off by default outside DEBUG: the API surface is documented in docs/openapi.yaml, and the Swagger UI loads its
+    assets from a CDN, which the production Content-Security-Policy does not allow.
+    """
+
+    def has_permission(self, request, view) -> bool:
+        if not settings.ENABLE_API_DOCS:
+            raise exceptions.NotFound()
         return True
 
 
