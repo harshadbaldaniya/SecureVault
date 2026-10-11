@@ -1,0 +1,98 @@
+from drf_spectacular.utils import extend_schema_field
+from rest_framework import serializers
+
+from apps.departments.models import Department
+from apps.organizations.models import Organization
+from core.permissions import permissions_for
+from core.tenancy import OrgScopedPrimaryKeyRelatedField
+
+from .models import Invitation, User
+
+
+class OrganizationBriefSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Organization
+        fields = ["id", "name", "slug"]
+
+
+class DepartmentBriefSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Department
+        fields = ["id", "name", "code"]
+
+
+class MeSerializer(serializers.ModelSerializer):
+    organization = OrganizationBriefSerializer(read_only=True)
+    department = DepartmentBriefSerializer(read_only=True, allow_null=True)
+    permissions = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = ["id", "email", "full_name", "role", "status", "organization", "department", "permissions"]
+
+    @extend_schema_field(serializers.ListField(child=serializers.CharField()))
+    def get_permissions(self, user):
+        # For UI only (showing/hiding controls). The server re-checks every request.
+        return sorted(permissions_for(user))
+
+
+class LoginSerializer(serializers.Serializer):
+    email = serializers.EmailField(max_length=254)
+    password = serializers.CharField(max_length=256, trim_whitespace=False, write_only=True)
+
+
+class AcceptInvitationSerializer(serializers.Serializer):
+    token = serializers.CharField(max_length=128, write_only=True)
+    password = serializers.CharField(max_length=256, trim_whitespace=False, write_only=True)
+
+
+class UserAdminSerializer(serializers.ModelSerializer):
+    department = OrgScopedPrimaryKeyRelatedField(
+        queryset=Department.objects.all(), allow_null=True, required=False
+    )
+    department_name = serializers.CharField(source="department.name", read_only=True, default=None)
+
+    class Meta:
+        model = User
+        fields = [
+            "id", "email", "full_name", "role", "status", "department", "department_name",
+            "last_login", "created_at", "updated_at",
+        ]
+        read_only_fields = ["id", "email", "last_login", "created_at", "updated_at"]
+
+
+class InvitationCreateSerializer(serializers.Serializer):
+    email = serializers.EmailField(max_length=254)
+    full_name = serializers.CharField(max_length=150)
+    role = serializers.ChoiceField(choices=User.Role.choices, default=User.Role.EMPLOYEE)
+    department = OrgScopedPrimaryKeyRelatedField(
+        queryset=Department.objects.all(), allow_null=True, required=False
+    )
+
+
+class InvitationSerializer(serializers.ModelSerializer):
+    email = serializers.EmailField(source="user.email", read_only=True)
+    full_name = serializers.CharField(source="user.full_name", read_only=True)
+    role = serializers.CharField(source="user.role", read_only=True)
+    invited_by_name = serializers.CharField(source="invited_by.full_name", read_only=True, default=None)
+    state = serializers.CharField(read_only=True)
+
+    class Meta:
+        model = Invitation
+        fields = [
+            "id", "email", "full_name", "role", "state", "invited_by_name",
+            "expires_at", "accepted_at", "revoked_at", "created_at",
+        ]
+
+
+class InvitationLinkSerializer(InvitationSerializer):
+    """Returned only by create/resend: includes the one-time activation link."""
+
+    invite_url = serializers.CharField(read_only=True)
+
+    class Meta(InvitationSerializer.Meta):
+        fields = [*InvitationSerializer.Meta.fields, "invite_url"]
+
+
+class DetailSerializer(serializers.Serializer):
+    detail = serializers.CharField()

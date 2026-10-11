@@ -3,6 +3,8 @@ import logging
 import redis
 from django.conf import settings
 from django.db import connection
+from drf_spectacular.utils import extend_schema, inline_serializer
+from rest_framework import serializers
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -17,6 +19,14 @@ class HealthView(APIView):
     authentication_classes = []
     throttle_classes = []
 
+    @extend_schema(
+        responses={
+            (200, "application/json"): inline_serializer(
+                "Health",
+                {"status": serializers.CharField(), "checks": serializers.DictField(child=serializers.CharField())},
+            )
+        }
+    )
     def get(self, request):
         checks = {"database": self._check_database(), "redis": self._check_redis()}
         healthy = all(value == "ok" for value in checks.values())

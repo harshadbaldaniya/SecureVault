@@ -3,6 +3,7 @@ DJANGO_SETTINGS_MODULE = "config.settings"
 python_files = ["test_*.py"]
 testpaths = ["tests"]
 addopts = "-ra --strict-markers"
+filterwarnings = ["error:Pagination may yield inconsistent results:RuntimeWarning"]
 
 [tool.ruff]
 line-length = 120

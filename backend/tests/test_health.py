@@ -23,5 +23,5 @@ def test_health_returns_503_without_leaking_error_details_when_redis_is_down():
 @pytest.mark.django_db
 def test_api_docs_require_authentication():
     client = APIClient()
-    assert client.get("/api/v1/schema/").status_code == 403
-    assert client.get("/api/v1/docs/").status_code == 403
+    assert client.get("/api/v1/schema/").status_code == 401
+    assert client.get("/api/v1/docs/").status_code == 401

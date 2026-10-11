@@ -56,6 +56,7 @@ INSTALLED_APPS = [
     "core",
     "apps.organizations",
     "apps.accounts",
+    "apps.departments",
 ]
 
 MIDDLEWARE = [
@@ -153,24 +154,49 @@ FILE_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024
 
 # --- REST framework ---
 REST_FRAMEWORK = {
-    "DEFAULT_AUTHENTICATION_CLASSES": ["rest_framework.authentication.SessionAuthentication"],
-    "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],
-    "DEFAULT_FILTER_BACKENDS": ["django_filters.rest_framework.DjangoFilterBackend"],
+    "DEFAULT_AUTHENTICATION_CLASSES": ["core.authentication.SessionAuthentication"],
+    # Secure default: every endpoint requires an ACTIVE user in an ACTIVE organization
+    # unless a view explicitly opts out.
+    "DEFAULT_PERMISSION_CLASSES": ["core.permissions.IsActiveMember"],
+    "DEFAULT_FILTER_BACKENDS": [
+        "django_filters.rest_framework.DjangoFilterBackend",
+        "rest_framework.filters.SearchFilter",
+        "rest_framework.filters.OrderingFilter",
+    ],
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 25,
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    "EXCEPTION_HANDLER": "core.exceptions.api_exception_handler",
     "DEFAULT_THROTTLE_CLASSES": [
         "rest_framework.throttling.AnonRateThrottle",
         "rest_framework.throttling.UserRateThrottle",
     ],
-    "DEFAULT_THROTTLE_RATES": {"anon": "60/min", "user": "600/min"},
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": "60/min",
+        "user": "600/min",
+        "login": "10/min",
+        "invitation_accept": "10/min",
+    },
+    # 0 = use REMOTE_ADDR and ignore X-Forwarded-For (which clients can forge).
+    # Set to the number of trusted reverse proxies in production.
+    "NUM_PROXIES": int(env("DJANGO_NUM_PROXIES", "0")),
 }
+
+# --- Account security ---
+FRONTEND_URL = env("FRONTEND_URL", "http://localhost:5173").rstrip("/")
+INVITATION_TTL_HOURS = int(env("INVITATION_TTL_HOURS", "72"))
+LOGIN_LOCKOUT_THRESHOLD = 5  # failed attempts per email ...
+LOGIN_LOCKOUT_SECONDS = 15 * 60  # ... within / locked for this window
 
 SPECTACULAR_SETTINGS = {
     "TITLE": "SecureVault API",
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
     "SERVE_PERMISSIONS": ["rest_framework.permissions.IsAuthenticated"],
+    "ENUM_NAME_OVERRIDES": {
+        "UserStatusEnum": "apps.accounts.models.User.Status",
+        "DepartmentStatusEnum": "apps.departments.models.Department.Status",
+    },
 }
 
 # --- Cache (Redis; never used for decrypted secrets) ---
