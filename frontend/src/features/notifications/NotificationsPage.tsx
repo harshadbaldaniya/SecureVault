@@ -7,7 +7,8 @@ import { api, ApiError } from "@/services/api";
 import type { AppNotification, Page } from "@/types/api";
 
 const PAGE_SIZE = 25;
-const PRIORITY_TONE = { LOW: "slate", NORMAL: "blue", HIGH: "amber", CRITICAL: "red" } as const;
+// Same scale as alert severity: high and critical are both red, so one level never reads as two different colours.
+const PRIORITY_TONE = { LOW: "slate", NORMAL: "blue", HIGH: "red", CRITICAL: "red" } as const;
 
 export const UNREAD_KEY = ["notifications", "unread"] as const;
 
@@ -20,9 +21,16 @@ export function NotificationBell() {
   });
   const count = unread.data?.unread ?? 0;
   return (
-    <Link to="/notifications" className="flex items-center justify-between rounded-md px-3 py-2 text-sm hover:bg-white/5" aria-label={`Notifications, ${count} unread`}>
-      <span>Notifications</span>
-      {count > 0 && <span className="rounded-full bg-red-600 px-2 py-0.5 text-xs font-semibold text-white">{count > 99 ? "99+" : count}</span>}
+    <Link to="/notifications" className="flex items-center justify-between rounded-md px-3 py-2 text-sm hover:bg-white/5">
+      <span>
+        Notifications
+        {count > 0 && <span className="sr-only">, {count} unread</span>}
+      </span>
+      {count > 0 && (
+        <span aria-hidden="true" className="rounded-full bg-red-600 px-2 py-0.5 text-xs font-semibold text-white">
+          {count > 99 ? "99+" : count}
+        </span>
+      )}
     </Link>
   );
 }
@@ -49,7 +57,7 @@ export function NotificationsPage() {
         actions={
           <div className="flex gap-2">
             <Button variant="secondary" aria-pressed={unreadOnly} onClick={() => { setUnreadOnly((v) => !v); setPage(1); }}>
-              {unreadOnly ? "Show all" : "Unread only"}
+              Unread only
             </Button>
             <Button onClick={() => markAll.mutate()} loading={markAll.isPending}>
               Mark all as read
@@ -57,6 +65,14 @@ export function NotificationsPage() {
           </div>
         }
       />
+      {(markRead.isError || markAll.isError) && (
+        <Alert tone="error" className="mb-4">
+          {(() => {
+            const error = markRead.error ?? markAll.error;
+            return error instanceof ApiError ? error.message : "Could not update your notifications. Nothing was changed.";
+          })()}
+        </Alert>
+      )}
       {query.isPending ? (
         <PageLoader />
       ) : query.isError ? (
@@ -75,7 +91,7 @@ export function NotificationsPage() {
                       {n.title}
                     </p>
                     {n.message && <p className="mt-1 text-sm text-slate-600">{n.message}</p>}
-                    <p className="mt-1 text-xs text-slate-500">
+                    <p className="mt-1 text-xs text-slate-600">
                       <time dateTime={n.created_at}>{new Date(n.created_at).toLocaleString()}</time>
                     </p>
                   </div>
@@ -86,11 +102,13 @@ export function NotificationsPage() {
                         Open
                       </TextLink>
                     )}
-                    {!n.is_read && (
-                      <Button variant="ghost" size="sm" onClick={() => markRead.mutate(n.id)} aria-label={`Mark "${n.title}" as read`}>
-                        Mark read
-                      </Button>
-                    )}
+                    <span className="inline-flex sm:w-24 sm:justify-end">
+                      {!n.is_read && (
+                        <Button variant="ghost" size="sm" onClick={() => markRead.mutate(n.id)} aria-label={`Mark read: ${n.title}`}>
+                          Mark read
+                        </Button>
+                      )}
+                    </span>
                   </div>
                 </div>
               </li>

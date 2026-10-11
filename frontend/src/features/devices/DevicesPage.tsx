@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
-import { Alert, Badge, Button, Dialog, EmptyState, Field, Input, PageHeader, PageLoader, Pagination, Select, Table } from "@/components/ui";
+import { Alert, Badge, Button, Dialog, EmptyState, Field, Input, PageHeader, PageLoader, Pagination, Select, Table, tabClass, tabListClass } from "@/components/ui";
 import { useAuth } from "@/features/authentication/AuthContext";
 import { api, ApiError } from "@/services/api";
 import type { Device, DeviceEvent, Page, TrustState } from "@/types/api";
@@ -89,24 +89,25 @@ export function DevicesPage() {
       <PageHeader title="Devices" description="Browsers and machines that have signed in to your account. Each is identified by a secure cookie; browser signals only help detect anomalies." />
       {notice && <Alert tone="success">{notice}</Alert>}
 
-      <div className="my-4 flex flex-wrap items-end gap-3">
-        {isAdmin && (
-          <div role="tablist" aria-label="Device views" className="flex gap-1 border-b border-slate-200">
-            {(["mine", "all"] as const).map((value) => (
-              <button
-                key={value}
-                type="button"
-                role="tab"
-                aria-selected={scope === value}
-                onClick={() => { setScope(value); setPage(1); }}
-                className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium ${scope === value ? "border-brand-600 text-brand-700" : "border-transparent text-slate-500"}`}
-              >
-                {value === "mine" ? "My devices" : "All devices"}
-              </button>
-            ))}
-          </div>
-        )}
-        <div className="w-48">
+      {isAdmin && (
+        <div role="tablist" aria-label="Device views" className={tabListClass}>
+          {(["mine", "all"] as const).map((value) => (
+            <button
+              key={value}
+              type="button"
+              role="tab"
+              aria-selected={scope === value}
+              onClick={() => { setScope(value); setPage(1); }}
+              className={tabClass(scope === value)}
+            >
+              {value === "mine" ? "My devices" : "All devices"}
+            </button>
+          ))}
+        </div>
+      )}
+
+      <div className="mb-4 flex flex-wrap items-end gap-3">
+        <div className="w-full sm:w-48">
           <Field label="Trust">
             {(props) => (
               <Select {...props} value={trust} onChange={(e) => { setTrust(e.target.value); setPage(1); }}>

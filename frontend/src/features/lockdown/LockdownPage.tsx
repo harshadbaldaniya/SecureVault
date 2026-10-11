@@ -201,7 +201,7 @@ export function LockdownPage() {
                   <div className="text-sm">
                     <Badge tone="red">{l.scope === "GLOBAL" ? "Organization-wide" : `Account: ${l.target_user_name}`}</Badge>
                     <p className="mt-1">{l.reason}</p>
-                    <p className="text-xs text-slate-500">
+                    <p className="text-xs text-slate-700">
                       Started {new Date(l.triggered_at).toLocaleString()} by {l.initiated_by_name} · {l.terminated_session_count} session(s) terminated
                     </p>
                   </div>

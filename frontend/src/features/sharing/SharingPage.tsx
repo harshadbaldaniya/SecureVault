@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
-import { Alert, Badge, Button, ConfirmDialog, EmptyState, Field, PageHeader, PageLoader, Pagination, Select, Table } from "@/components/ui";
+import { Alert, Badge, Button, ConfirmDialog, EmptyState, Field, PageHeader, PageLoader, Pagination, Select, Table, tabClass, tabListClass } from "@/components/ui";
 import { api, ApiError } from "@/services/api";
 import type { Page, Share, ShareState } from "@/types/api";
 
@@ -45,22 +45,23 @@ export function SharingPage() {
         </Alert>
       )}
 
+      <div role="tablist" aria-label="Direction" className={tabListClass}>
+        {(["given", "received"] as const).map((d) => (
+          <button
+            key={d}
+            type="button"
+            role="tab"
+            aria-selected={direction === d}
+            onClick={() => { setDirection(d); setPage(1); }}
+            className={tabClass(direction === d)}
+          >
+            {d === "given" ? "Shared by me" : "Shared with me"}
+          </button>
+        ))}
+      </div>
+
       <div className="mb-4 flex flex-wrap items-end gap-3">
-        <div role="tablist" aria-label="Direction" className="flex gap-1 border-b border-slate-200">
-          {(["given", "received"] as const).map((d) => (
-            <button
-              key={d}
-              type="button"
-              role="tab"
-              aria-selected={direction === d}
-              onClick={() => { setDirection(d); setPage(1); }}
-              className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium ${direction === d ? "border-brand-600 text-brand-700" : "border-transparent text-slate-500 hover:text-slate-800"}`}
-            >
-              {d === "given" ? "Shared by me" : "Shared with me"}
-            </button>
-          ))}
-        </div>
-        <div className="w-48">
+        <div className="w-full sm:w-48">
           <Field label="Status">
             {(props) => (
               <Select {...props} value={state} onChange={(e) => { setState(e.target.value as typeof state); setPage(1); }}>

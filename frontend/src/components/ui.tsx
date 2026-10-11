@@ -1,7 +1,7 @@
-import { forwardRef, useEffect, useId, useRef, type AnchorHTMLAttributes, type ButtonHTMLAttributes, type ComponentProps, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from "react";
+import { forwardRef, useEffect, useId, useRef, useState, type AnchorHTMLAttributes, type ButtonHTMLAttributes, type ComponentProps, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from "react";
 import { Link } from "react-router-dom";
 
-import { UploadIcon } from "./icons";
+import { CloseIcon, UploadIcon } from "./icons";
 
 const cx = (...parts: Array<string | false | null | undefined>) => parts.filter(Boolean).join(" ");
 
@@ -21,7 +21,7 @@ export type ButtonSize = "md" | "sm";
 
 const variants: Record<ButtonVariant, string> = {
   primary: "bg-brand-600 text-white hover:bg-brand-700 disabled:bg-brand-600/50",
-  secondary: "bg-white text-slate-800 ring-1 ring-slate-300 hover:bg-slate-50 disabled:text-slate-400",
+  secondary: "bg-white text-slate-800 ring-1 ring-slate-300 hover:bg-slate-50 disabled:text-slate-400 aria-pressed:bg-brand-50 aria-pressed:text-brand-700 aria-pressed:ring-brand-600",
   danger: "bg-red-600 text-white hover:bg-red-700 disabled:bg-red-600/50",
   ghost: "text-slate-700 hover:bg-slate-100 disabled:text-slate-400",
   "danger-ghost": "text-red-700 hover:bg-red-50 disabled:text-slate-400",
@@ -80,7 +80,7 @@ export function LinkButton({ variant = "secondary", size = "md", className, chil
 /** A lightweight inline reference (low-priority navigation inside text or beside a field). */
 export function TextLink({ className, children, ...target }: { className?: string; children: ReactNode } & (RouterTarget | AnchorTarget)) {
   return (
-    <Anchor className={cx("rounded-sm font-medium text-brand-700 underline-offset-2 hover:underline", className)} {...target}>
+    <Anchor className={cx("rounded-sm py-1.5 font-medium text-brand-700 underline-offset-2 hover:underline", className)} {...target}>
       {children}
     </Anchor>
   );
@@ -157,15 +157,18 @@ export function Alert({ tone = "info", children, className, action }: { tone?: A
   );
 }
 
-export function EmptyState({ title, hint }: { title: string; hint?: string }) {
+export function EmptyState({ title, hint, action }: { title: string; hint?: string; action?: ReactNode }) {
   return (
     <div className="rounded-lg border border-dashed border-slate-300 p-10 text-center">
       <p className="font-medium text-slate-700">{title}</p>
       {hint && <p className="mt-1 text-sm text-slate-500">{hint}</p>}
+      {action && <div className="mt-4 flex justify-center">{action}</div>}
     </div>
   );
 }
 
+// Colour convention used across the app: green = healthy/done, amber = needs attention or pending, red = severe, failed or
+// blocked, blue = informational or in progress, slate = neutral or inactive. The text always carries the meaning too.
 const badgeTones: Record<string, string> = {
   green: "bg-green-100 text-green-800",
   red: "bg-red-100 text-red-800",
@@ -177,6 +180,13 @@ const badgeTones: Record<string, string> = {
 export function Badge({ tone = "slate", children }: { tone?: keyof typeof badgeTones; children: ReactNode }) {
   return <span className={cx("inline-block rounded-full px-2.5 py-0.5 text-xs font-medium", badgeTones[tone])}>{children}</span>;
 }
+
+// --------------------------------------------------------------------------- Tabs
+
+/** Shared look for every tab strip so the pages stay identical: one row, underline for the selected tab. */
+export const tabListClass = "mb-4 flex flex-wrap gap-x-1 border-b border-slate-200";
+export const tabClass = (selected: boolean) =>
+  `-mb-px border-b-2 px-4 py-2 text-sm font-medium ${selected ? "border-brand-600 text-brand-700" : "border-transparent text-slate-600 hover:text-slate-900"}`;
 
 // --------------------------------------------------------------------------- Layout
 
@@ -264,9 +274,9 @@ export const Select = forwardRef<HTMLSelectElement, SelectHTMLAttributes<HTMLSel
 export const Checkbox = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement> & { label: string }>(function Checkbox({ label, ...rest }, ref) {
   const id = useId();
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex min-h-8 items-center gap-2">
       <input ref={ref} id={id} type="checkbox" {...rest} className="size-4 rounded border-slate-300 text-brand-600" />
-      <label htmlFor={id} className="text-sm text-slate-700">
+      <label htmlFor={id} className="cursor-pointer py-1 text-sm text-slate-700">
         {label}
       </label>
     </div>
@@ -312,12 +322,36 @@ interface DialogProps {
   title: string;
   onClose: () => void;
   children: ReactNode;
+  /** Header "×" button. On by default; confirmation questions already have an explicit Cancel and turn it off. */
+  closeButton?: boolean;
 }
 
-/** Native <dialog>: focus trap, Escape to close and inert background come from the browser. */
-export function Dialog({ open, title, onClose, children }: DialogProps) {
+/** A short fingerprint of everything typed into the forms inside `root` (hashed, so no second copy of a secret is kept). */
+function formFingerprint(root: HTMLElement): string {
+  let hash = 5381;
+  const feed = (text: string) => {
+    for (let i = 0; i < text.length; i += 1) hash = ((hash << 5) + hash + text.charCodeAt(i)) | 0;
+  };
+  // Every field, named or not: a controlled input without a `name` would be invisible to FormData.
+  root.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>("form input, form select, form textarea").forEach((field, index) => {
+    if (field instanceof HTMLInputElement && (field.type === "checkbox" || field.type === "radio")) feed(`${index}:${field.checked}\u0000`);
+    else if (field instanceof HTMLInputElement && field.type === "file") feed(`${index}:${Array.from(field.files ?? [], (f) => f.name).join(",")}\u0000`);
+    else feed(`${index}:${field.value}\u0000`);
+  });
+  return String(hash);
+}
+
+/**
+ * Native <dialog>: focus trap, Escape to close, inert background and focus return to the opener come from the browser.
+ * Escape and the × button never lose typed form input silently: once something inside a form was edited they ask first.
+ * (A form's own Cancel button is an explicit choice and closes immediately.)
+ */
+export function Dialog({ open, title, onClose, children, closeButton = true }: DialogProps) {
   const ref = useRef<HTMLDialogElement>(null);
   const titleId = useId();
+  const touched = useRef(false);
+  const baseline = useRef<string | null>(null);
+  const [discarding, setDiscarding] = useState(false);
 
   useEffect(() => {
     const dialog = ref.current;
@@ -331,21 +365,78 @@ export function Dialog({ open, title, onClose, children }: DialogProps) {
       if (typeof dialog.close === "function") dialog.close();
       else dialog.removeAttribute("open");
     }
+    touched.current = false;
+    baseline.current = null;
+    setDiscarding(false);
+    // What the form looked like when it opened. It is refreshed on every focus until the first edit (below), so values
+    // that arrive a moment after opening, or an edit made before this ran, can never be mistaken for the starting point.
+    if (open && ref.current) baseline.current = formFingerprint(ref.current);
   }, [open]);
+
+  /** Unsaved = the user touched a form AND its content now differs from how it opened, so typing and reverting is clean. */
+  const isDirty = () => touched.current && baseline.current !== null && ref.current !== null && formFingerprint(ref.current) !== baseline.current;
+
+  /** The × button: close at once, or ask first when a form inside was edited. */
+  const requestClose = () => {
+    if (isDirty()) {
+      setDiscarding(true);
+      return;
+    }
+    onClose();
+  };
 
   return (
     <dialog
       ref={ref}
       aria-labelledby={titleId}
       onClose={onClose}
-      onCancel={onClose}
+      onCancel={(event) => {
+        // Escape: keep the dialog open while we ask about unsaved edits.
+        if (isDirty()) {
+          event.preventDefault();
+          setDiscarding(true);
+        } else onClose();
+      }}
+      onFocus={() => {
+        if (!touched.current && ref.current) baseline.current = formFingerprint(ref.current);
+      }}
+      onInput={(event) => {
+        if ((event.target as HTMLElement).closest("form")) touched.current = true;
+      }}
+      onClick={(event) => {
+        // Buttons such as "Generate" change a field without an input event.
+        if ((event.target as HTMLElement).closest("form button")) touched.current = true;
+      }}
       className="m-auto w-[calc(100%-2rem)] max-w-lg rounded-lg p-0 shadow-xl backdrop:bg-slate-900/50"
     >
       {open && (
-        <div className="p-6">
-          <h2 id={titleId} className="mb-4 text-lg font-semibold">
+        <div className="relative p-6">
+          {closeButton && (
+            <button
+              type="button"
+              aria-label="Close dialog"
+              onClick={requestClose}
+              className="absolute right-3 top-3 inline-flex size-9 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-800"
+            >
+              <CloseIcon />
+            </button>
+          )}
+          <h2 id={titleId} className={cx("mb-4 text-lg font-semibold", closeButton && "pr-10")}>
             {title}
           </h2>
+          {discarding && (
+            <div role="alert" className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+              <span>Discard your unsaved changes?</span>
+              <span className="flex gap-2">
+                <Button size="sm" variant="secondary" autoFocus onClick={() => setDiscarding(false)}>
+                  Keep editing
+                </Button>
+                <Button size="sm" variant="danger" onClick={onClose}>
+                  Discard
+                </Button>
+              </span>
+            </div>
+          )}
           {children}
         </div>
       )}
@@ -368,7 +459,7 @@ interface ConfirmProps {
 /** Confirmation step for sensitive or destructive actions. */
 export function ConfirmDialog({ open, title, message, confirmLabel, danger, busy, error, onConfirm, onCancel }: ConfirmProps) {
   return (
-    <Dialog open={open} title={title} onClose={onCancel}>
+    <Dialog open={open} title={title} onClose={onCancel} closeButton={false}>
       <div className="space-y-4">
         <div className="text-sm text-slate-600">{message}</div>
         {error && <Alert tone="error">{error}</Alert>}
@@ -394,21 +485,42 @@ export function Pagination({ page, pageSize, count, onPage }: { page: number; pa
       <span>
         Page {page} of {pages} · {count} total
       </span>
-      <div className="flex gap-2">
-        <Button variant="secondary" disabled={page <= 1} onClick={() => onPage(page - 1)}>
-          Previous
-        </Button>
-        <Button variant="secondary" disabled={page >= pages} onClick={() => onPage(page + 1)}>
-          Next
-        </Button>
-      </div>
+      {pages > 1 && (
+        <div className="flex gap-2">
+          <Button variant="secondary" disabled={page <= 1} onClick={() => onPage(page - 1)}>
+            Previous
+          </Button>
+          <Button variant="secondary" disabled={page >= pages} onClick={() => onPage(page + 1)}>
+            Next
+          </Button>
+        </div>
+      )}
     </nav>
   );
 }
 
+// A scrollable table can be much taller than the window, so an outline around the whole box would be huge. Focus is shown on
+// the header row instead (tinted, with a thick underline), which always sits at the top of the region.
+const TABLE_FOCUS =
+  "focus-visible:outline-none [&:focus-visible_thead]:bg-brand-50 [&:focus-visible_thead_th]:text-brand-700 [&:focus-visible_thead_th]:shadow-[inset_0_-3px_0_0_var(--color-brand-600)]";
+
 export function Table({ caption, headers, children }: { caption: string; headers: string[]; children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [scrolls, setScrolls] = useState(false);
+
+  // A horizontally scrolling region must be reachable by keyboard (WCAG 2.1.1), but only when it actually overflows,
+  // so short tables do not add a pointless tab stop.
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const update = () => setScrolls(el.scrollWidth > el.clientWidth + 1);
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  });
+
   return (
-    <div className="overflow-x-auto rounded-lg ring-1 ring-slate-200">
+    <div ref={ref} className={cx("overflow-x-auto rounded-lg ring-1 ring-slate-200", scrolls && TABLE_FOCUS)} {...(scrolls ? { role: "region", tabIndex: 0, "aria-label": `${caption} (scrollable)` } : {})}>
       <table className="min-w-full divide-y divide-slate-200 bg-white text-sm">
         <caption className="sr-only">{caption}</caption>
         <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">

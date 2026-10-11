@@ -42,3 +42,9 @@ export const DocumentIcon = (props: SVGProps<SVGSVGElement>) => (
     <path d="M6 2.5h5.5L15 6v11.5H6zM11 2.5V6h4M8.5 10h4M8.5 13h4" />
   </Icon>
 );
+
+export const CloseIcon = (props: SVGProps<SVGSVGElement>) => (
+  <Icon {...props}>
+    <path d="m5 5 10 10M15 5 5 15" />
+  </Icon>
+);

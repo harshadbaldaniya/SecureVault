@@ -238,7 +238,9 @@ describe("app shell scrolling (real browser)", () => {
         const inMain = Boolean(el?.closest("main#main"));
         const r = el.getBoundingClientRect();
         const cs = getComputedStyle(el);
-        return { inMain, visible: r.top >= 0 && r.bottom <= window.innerHeight, outline: cs.outlineStyle !== "none" && parseFloat(cs.outlineWidth) > 0, mainScrollTop: document.querySelector("main#main").scrollTop };
+        // A focusable scroll region (a wide table) can be taller than the window; it only has to start inside it, and it shows
+        // focus on its tinted header row instead of an outline around a possibly huge box.
+        return { inMain, visible: r.top >= 0 && r.top < window.innerHeight && (r.bottom <= window.innerHeight || r.height > window.innerHeight), outline: (cs.outlineStyle !== "none" && parseFloat(cs.outlineWidth) > 0) || (el.matches("[role=region][tabindex]") && getComputedStyle(el.querySelector("thead")).backgroundColor === "rgb(239, 246, 255)"), mainScrollTop: document.querySelector("main#main").scrollTop };
       });
       if (focused.inMain && focused.mainScrollTop > 0) break;
     }
@@ -250,7 +252,7 @@ describe("app shell scrolling (real browser)", () => {
 
   it("phone: no scrollbar, and touch scrolling works for the page and for the drawer", async () => {
     const state = await context.storageState();
-    const touch = await browser.newContext({ storageState: state, baseURL: BASE, viewport: { width: 390, height: 520 }, hasTouch: true, isMobile: true });
+    const touch = await browser.newContext({ ignoreHTTPSErrors: true, storageState: state, baseURL: BASE, viewport: { width: 390, height: 520 }, hasTouch: true, isMobile: true });
     const tp = await touch.newPage();
     tp.on("pageerror", (error) => problems.push(`pageerror: ${error.message}`));
     try {

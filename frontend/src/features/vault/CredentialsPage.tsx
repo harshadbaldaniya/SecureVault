@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
-import { Alert, Badge, Button, ConfirmDialog, Dialog, EmptyState, Field, Input, PageHeader, PageLoader, Pagination, Select, Table } from "@/components/ui";
+import { Alert, Badge, Button, ConfirmDialog, Dialog, EmptyState, Field, Input, PageHeader, PageLoader, Pagination, Select, Table, tabClass, tabListClass } from "@/components/ui";
 import { useDebounced } from "@/hooks/useDebounced";
 import { api, ApiError } from "@/services/api";
 import type { Credential, Page, ServiceItem } from "@/types/api";
@@ -91,7 +91,7 @@ export function CredentialsPage() {
         </Alert>
       )}
 
-      <div className="mb-4 flex gap-1 border-b border-slate-200" role="tablist" aria-label="Credential views">
+      <div className={tabListClass} role="tablist" aria-label="Credential views">
         {[false, true].map((value) => (
           <button
             key={String(value)}
@@ -99,7 +99,7 @@ export function CredentialsPage() {
             role="tab"
             aria-selected={archived === value}
             onClick={() => reset(setArchived)(value)}
-            className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium ${archived === value ? "border-brand-600 text-brand-700" : "border-transparent text-slate-500 hover:text-slate-800"}`}
+            className={tabClass(archived === value)}
           >
             {value ? "Archived" : "Active"}
           </button>
@@ -116,7 +116,7 @@ export function CredentialsPage() {
             </Select>
           )}
         </Field>
-        <Field label="Search" hint="Title, username, service or category. Secrets are never searchable.">
+        <Field label="Search" hint="Title, username, service or category.">
           {(props) => <Input {...props} type="search" value={search} onChange={(e) => reset(setSearch)(e.target.value)} />}
         </Field>
         <Field label="Service">
@@ -149,7 +149,9 @@ export function CredentialsPage() {
       ) : query.isError ? (
         <Alert tone="error">{message(query.error)}</Alert>
       ) : query.data.results.length === 0 ? (
-        <EmptyState title={archived ? "No archived credentials" : "No credentials found"} hint={archived ? undefined : "Add your first credential, or change the filters."} />
+        <EmptyState title={archived ? "No archived credentials" : "No credentials found"} hint={archived ? undefined : "Add your first credential, or change the filters."}
+          action={!archived && <Button onClick={() => setEditing("new")}>Add a credential</Button>}
+        />
       ) : (
         <>
           <Table caption="Credentials" headers={["Title", "Service", "Hygiene", "Expires", "Tags", "Actions"]}>

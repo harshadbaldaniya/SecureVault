@@ -7,7 +7,8 @@ import type { AnomalyAlert, Page } from "@/types/api";
 
 const PAGE_SIZE = 25;
 const SEVERITY_TONE = { LOW: "slate", MEDIUM: "amber", HIGH: "red" } as const;
-const STATUS_TONE = { OPEN: "red", ACKNOWLEDGED: "amber", DISMISSED: "slate" } as const;
+// Severity owns red; a status only says whether someone still has to act (amber), is on it (blue) or it is closed (slate).
+const STATUS_TONE = { OPEN: "amber", ACKNOWLEDGED: "blue", DISMISSED: "slate" } as const;
 const message = (e: unknown) => (e instanceof ApiError ? e.message : "Something went wrong. Please try again.");
 
 export function AlertsPage() {

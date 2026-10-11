@@ -2,10 +2,11 @@ import { useQuery } from "@tanstack/react-query";
 import { Suspense, useEffect, useRef, useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 
-import { Alert, Button, PageLoader, LinkButton, TextLink } from "@/components/ui";
+import { Alert, Button, PageLoader, LinkButton } from "@/components/ui";
 import { useAuth } from "@/features/authentication/AuthContext";
 import { useDeviceRegistration } from "@/features/devices/deviceRegistration";
 import { NotificationBell } from "@/features/notifications/NotificationsPage";
+import { ToastStack } from "@/features/notifications/Toasts";
 import { useRealtime } from "@/features/notifications/realtime";
 import { api } from "@/services/api";
 import type { Permission, SecurityPolicy } from "@/types/api";
@@ -35,7 +36,6 @@ const NAV: NavItem[] = [
 ];
 
 const ROLE_LABEL = { ORG_ADMIN: "Organization Administrator", SEC_ADMIN: "Security Administrator", EMPLOYEE: "Employee" } as const;
-const PRIORITY_TONE = { LOW: "info", NORMAL: "info", HIGH: "warning", CRITICAL: "error" } as const;
 
 /** Shown instead of the app when a lockdown covers a user who may not be signed in. */
 function LockdownScreen({ onSignOut }: { onSignOut: () => void }) {
@@ -63,7 +63,23 @@ export function AppLayout() {
   const signedIn = Boolean(user);
   const device = useDeviceRegistration(signedIn);
   const policy = useQuery({ queryKey: ["policy"], queryFn: () => api.get<SecurityPolicy>("/policy/"), enabled: signedIn });
-  const { toast, dismissToast } = useRealtime(signedIn);
+  const { toasts, dismissToast } = useRealtime(signedIn);
+  const navRef = useRef<HTMLElement>(null);
+  const [navMore, setNavMore] = useState(false);
+
+  // Scrollbars are hidden, so a fade at the bottom edge is the only hint that more navigation items are below.
+  useEffect(() => {
+    const nav = navRef.current;
+    if (!nav) return;
+    const update = () => setNavMore(nav.scrollHeight - nav.scrollTop - nav.clientHeight > 4);
+    update();
+    nav.addEventListener("scroll", update, { passive: true });
+    window.addEventListener("resize", update);
+    return () => {
+      nav.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
+    };
+  });
 
   // The page content scrolls inside <main>, not the window, so a new page must start at the top explicitly.
   useEffect(() => {
@@ -101,20 +117,23 @@ export function AppLayout() {
         <div className="hidden shrink-0 px-6 py-5 text-xl font-bold text-white lg:block">
           Secure<span className="text-blue-400">Vault</span>
         </div>
-        <nav aria-label="Main" className="no-scrollbar min-h-0 flex-1 space-y-1 overflow-y-auto overflow-x-hidden overscroll-contain px-3 py-2">
-          {links.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.to === "/" || item.to === "/vault"}
-              onClick={() => setOpen(false)}
-              className={({ isActive }) => `block rounded-md px-3 py-2 text-sm ${isActive ? "bg-white/10 font-medium text-white" : "hover:bg-white/5"}`}
-            >
-              {item.label}
-            </NavLink>
-          ))}
-        </nav>
-        <div className="shrink-0 px-3 pb-2">
+        <div className="relative flex min-h-0 flex-1 flex-col">
+          <nav ref={navRef} aria-label="Main" className="no-scrollbar min-h-0 flex-1 space-y-1 overflow-y-auto overflow-x-hidden overscroll-contain px-3 py-2">
+            {links.map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                end={item.to === "/" || item.to === "/vault"}
+                onClick={() => setOpen(false)}
+                className={({ isActive }) => `block rounded-md px-3 py-2 text-sm ${isActive ? "bg-white/10 font-medium text-white" : "hover:bg-white/5"}`}
+              >
+                {item.label}
+              </NavLink>
+            ))}
+          </nav>
+          {navMore && <div aria-hidden="true" data-testid="nav-more" className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-slate-900 to-transparent" />}
+        </div>
+        <div className="shrink-0 border-t border-white/10 px-3 py-2">
           <NotificationBell />
         </div>
         <div className="shrink-0 border-t border-white/10 p-4 text-sm">
@@ -127,7 +146,7 @@ export function AppLayout() {
         </div>
       </aside>
 
-      <main ref={mainRef} id="main" className="no-scrollbar relative min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain p-4 sm:p-6 lg:p-8">
+      <main ref={mainRef} id="main" className="no-scrollbar relative min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain p-4 max-sm:pb-[calc(1rem+var(--toast-space,0px))] sm:p-6 lg:p-8">
         <div className="mx-auto max-w-6xl space-y-4">
           {user.lockdown && (
             <Alert
@@ -159,26 +178,7 @@ export function AppLayout() {
         </div>
       </main>
 
-      {toast && (
-        <div className="fixed bottom-4 right-4 z-40 w-80 max-w-[calc(100%-2rem)]" role="status" aria-live="polite">
-          <Alert tone={PRIORITY_TONE[toast.priority]}>
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="font-medium">{toast.title}</p>
-                {toast.message && <p className="mt-1 text-xs">{toast.message}</p>}
-                {toast.link && (
-                  <TextLink to={toast.link} className="mt-1 inline-block text-xs" onClick={dismissToast}>
-                    Open
-                  </TextLink>
-                )}
-              </div>
-              <Button variant="ghost" size="sm" onClick={dismissToast}>
-                Dismiss
-              </Button>
-            </div>
-          </Alert>
-        </div>
-      )}
+      <ToastStack toasts={toasts} onDismiss={dismissToast} />
     </div>
   );
 }

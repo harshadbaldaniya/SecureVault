@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
-import { Alert, Badge, Button, ConfirmDialog, Dialog, EmptyState, Field, Input, PageHeader, PageLoader, Pagination, Table, Textarea } from "@/components/ui";
+import { Alert, Badge, Button, ConfirmDialog, Dialog, EmptyState, Field, Input, PageHeader, PageLoader, Pagination, Table, Textarea, tabClass, tabListClass } from "@/components/ui";
 import { useDebounced } from "@/hooks/useDebounced";
 import { api, ApiError, fieldErrors } from "@/services/api";
 import type { Page, SecureNote } from "@/types/api";
@@ -133,15 +133,25 @@ export function NotesPage() {
         </Alert>
       )}
 
-      <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
-        <div className="w-full sm:w-72">
-          <Field label="Search" hint="Title and category only.">
-            {(props) => <Input {...props} type="search" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} />}
-          </Field>
-        </div>
-        <Button variant="secondary" onClick={() => { setArchived((a) => !a); setPage(1); }} aria-pressed={archived}>
-          {archived ? "Show active notes" : "Show archived notes"}
-        </Button>
+      <div className={tabListClass} role="tablist" aria-label="Note views">
+        {[false, true].map((value) => (
+          <button
+            key={String(value)}
+            type="button"
+            role="tab"
+            aria-selected={archived === value}
+            onClick={() => { setArchived(value); setPage(1); }}
+            className={tabClass(archived === value)}
+          >
+            {value ? "Archived" : "Active"}
+          </button>
+        ))}
+      </div>
+
+      <div className="mb-4 w-full sm:w-72">
+        <Field label="Search" hint="Title and category only.">
+          {(props) => <Input {...props} type="search" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} />}
+        </Field>
       </div>
 
       {query.isPending ? (

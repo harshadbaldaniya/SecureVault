@@ -49,10 +49,10 @@ const overflowX = (page) => page.evaluate(() => ({ window: document.scrollingEle
 describe("action hierarchy in a real browser", () => {
   before(async () => {
     browser = await chromium.launch({ executablePath, headless: true, args: ["--disable-gpu"], ignoreDefaultArgs: ["--hide-scrollbars"] });
-    anon = await (await browser.newContext({ baseURL: BASE, viewport: { width: 1280, height: 720 } })).newPage();
+    anon = await (await browser.newContext({ ignoreHTTPSErrors: true, baseURL: BASE, viewport: { width: 1280, height: 720 } })).newPage();
     watch(anon);
 
-    const options = { baseURL: BASE, viewport: { width: 1280, height: 720 } };
+    const options = { ignoreHTTPSErrors: true, baseURL: BASE, viewport: { width: 1280, height: 720 } };
     if (STATE && existsSync(STATE)) options.storageState = STATE;
     const context = await browser.newContext(options);
     signed = await context.newPage();

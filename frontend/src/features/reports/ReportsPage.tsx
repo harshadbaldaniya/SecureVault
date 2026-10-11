@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 
 import { DownloadIcon } from "@/components/icons";
-import { Alert, Button, Card, Checkbox, Dialog, EmptyState, Field, Input, PageHeader, PageLoader, Pagination, Select, Table, LinkButton } from "@/components/ui";
+import { Alert, Button, Card, Checkbox, Dialog, EmptyState, Field, Input, PageHeader, PageLoader, Pagination, Select, Table, LinkButton, tabClass, tabListClass } from "@/components/ui";
 import { AUDIT_ACTIONS } from "@/features/audit/actions";
 import { DelegationTree } from "@/features/sharing/DelegationTree";
 import { PersonPicker } from "@/features/sharing/ShareDialog";
@@ -91,7 +91,7 @@ export function ReportsPage() {
     <>
       <PageHeader title="Reports" description="Compliance and security reports. Metadata only: no secret ever appears in a report or export." />
 
-      <div className="mb-4 flex flex-wrap gap-1 border-b border-slate-200" role="tablist" aria-label="Reports">
+      <div className={tabListClass} role="tablist" aria-label="Reports">
         {catalog.data.reports.map((r) => (
           <button
             key={r.key}
@@ -104,7 +104,7 @@ export function ReportsPage() {
               setChosen(null);
               setPage(1);
             }}
-            className={`-mb-px border-b-2 px-3 py-2 text-sm font-medium ${key === r.key ? "border-brand-600 text-brand-700" : "border-transparent text-slate-500 hover:text-slate-800"}`}
+            className={tabClass(key === r.key)}
           >
             {r.title}
           </button>
@@ -116,13 +116,13 @@ export function ReportsPage() {
         <div className="flex flex-wrap items-end gap-3">
           {supported.includes("date") && (
             <>
-              <div className="w-40">
+              <div className="w-full sm:w-40">
                 <Field label="From">{(props) => <Input {...props} type="date" value={filters.date_from} onChange={(e) => set("date_from", e.target.value)} />}</Field>
               </div>
-              <div className="w-40">
+              <div className="w-full sm:w-40">
                 <Field label="To">{(props) => <Input {...props} type="date" value={filters.date_to} onChange={(e) => set("date_to", e.target.value)} />}</Field>
               </div>
-              <div className="flex gap-1 pb-1">
+              <div className="flex flex-wrap gap-1 pb-1">
                 {[7, 30, 90].map((d) => (
                   <Button key={d} variant="secondary" size="sm" onClick={() => { set("date_from", daysAgo(d - 1)); set("date_to", daysAgo(0)); }}>
                     Last {d} days
@@ -132,7 +132,7 @@ export function ReportsPage() {
             </>
           )}
           {supported.includes("department") && (
-            <div className="w-48">
+            <div className="w-full sm:w-48">
               <Field label="Department">
                 {(props) => (
                   <Select {...props} value={filters.department} onChange={(e) => set("department", e.target.value)}>
@@ -148,7 +148,7 @@ export function ReportsPage() {
             </div>
           )}
           {supported.includes("service") && (
-            <div className="w-48">
+            <div className="w-full sm:w-48">
               <Field label="Service">
                 {(props) => (
                   <Select {...props} value={filters.service} onChange={(e) => set("service", e.target.value)}>
@@ -164,7 +164,7 @@ export function ReportsPage() {
             </div>
           )}
           {supported.includes("device_trust") && (
-            <div className="w-40">
+            <div className="w-full sm:w-40">
               <Field label="Device trust">
                 {(props) => (
                   <Select {...props} value={filters.device_trust} onChange={(e) => set("device_trust", e.target.value)}>
@@ -179,7 +179,7 @@ export function ReportsPage() {
             </div>
           )}
           {supported.includes("share_status") && (
-            <div className="w-40">
+            <div className="w-full sm:w-40">
               <Field label="Share status">
                 {(props) => (
                   <Select {...props} value={filters.share_status} onChange={(e) => set("share_status", e.target.value)}>
@@ -194,7 +194,7 @@ export function ReportsPage() {
             </div>
           )}
           {supported.includes("status") && report && report.statuses.length > 0 && (
-            <div className="w-40">
+            <div className="w-full sm:w-40">
               <Field label="Status">
                 {(props) => (
                   <Select {...props} value={filters.status} onChange={(e) => set("status", e.target.value)}>

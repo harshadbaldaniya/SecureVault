@@ -188,6 +188,6 @@ describe("notifications", () => {
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: "Mark all as read" }));
     await waitFor(() => expect(calls.some((c) => c.path === "/notifications/read-all/")).toBe(true));
-    expect(await screen.findByRole("link", { name: "Notifications, 0 unread" })).toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: "Notifications" })).toBeInTheDocument();
   });
 });

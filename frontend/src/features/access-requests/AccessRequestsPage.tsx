@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
-import { Alert, Badge, Button, Dialog, EmptyState, Field, Input, PageHeader, PageLoader, Pagination, Select, Table, Textarea } from "@/components/ui";
+import { Alert, Badge, Button, Dialog, EmptyState, Field, Input, PageHeader, PageLoader, Pagination, Select, Table, Textarea, tabClass, tabListClass } from "@/components/ui";
 import { useDebounced } from "@/hooks/useDebounced";
 import { api, ApiError, fieldErrors } from "@/services/api";
 import type { AccessRequest, DirectoryEntry, Page, RequestState, SecurityPolicy } from "@/types/api";
@@ -188,7 +188,7 @@ export function AccessRequestsPage() {
           {notice}
         </Alert>
       )}
-      <div role="tablist" aria-label="Access request views" className="mb-4 flex gap-1 border-b border-slate-200">
+      <div role="tablist" aria-label="Access request views" className={tabListClass}>
         {tabs.map(([value, label]) => (
           <button
             key={value}
@@ -196,7 +196,7 @@ export function AccessRequestsPage() {
             role="tab"
             aria-selected={tab === value}
             onClick={() => { setTab(value); setPage(1); }}
-            className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium ${tab === value ? "border-brand-600 text-brand-700" : "border-transparent text-slate-500 hover:text-slate-800"}`}
+            className={tabClass(tab === value)}
           >
             {label}
           </button>

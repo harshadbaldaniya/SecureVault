@@ -204,7 +204,7 @@ export function EmployeeDirectory() {
                 {canManage && (
                   <td className="space-x-1 whitespace-nowrap px-4 py-3">
                     {e.id === user?.id ? (
-                      <span className="text-xs text-slate-400">You</span>
+                      <span className="text-xs text-slate-600">You</span>
                     ) : (
                       <>
                         <Button variant="ghost" onClick={() => setEditing(e)} aria-label={`Edit ${e.full_name}`}>
@@ -215,7 +215,7 @@ export function EmployeeDirectory() {
                             <Button variant="ghost" onClick={() => { setActionError(null); setAction({ kind: "reset-link", employee: e }); }} aria-label={`Create password reset link for ${e.full_name}`}>
                               Reset link
                             </Button>
-                            <Button variant="ghost" onClick={() => { setActionError(null); setAction({ kind: "reset-mfa", employee: e }); }} aria-label={`Reset two-step verification for ${e.full_name}`}>
+                            <Button variant="ghost" onClick={() => { setActionError(null); setAction({ kind: "reset-mfa", employee: e }); }} aria-label={`Reset MFA (two-step verification) for ${e.full_name}`}>
                               Reset MFA
                             </Button>
                           </>

@@ -149,7 +149,7 @@ describe("SecureVault in a real browser (production stack)", () => {
     await dialog.getByLabel(/View once/).check();
     await dialog.getByRole("button", { name: "Share", exact: true }).click();
     await dialog.getByText(/Access granted|shared/i).first().waitFor();
-    await dialog.getByRole("button", { name: "Close" }).click();
+    await dialog.getByRole("button", { name: "Close", exact: true }).click();
 
     const { page: emp } = employee;
     await emp.getByRole("link", { name: "Credentials", exact: true }).click();

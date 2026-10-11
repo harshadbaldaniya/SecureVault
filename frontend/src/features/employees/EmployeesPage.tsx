@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-import { PageHeader, LinkButton } from "@/components/ui";
+import { PageHeader, LinkButton, tabClass, tabListClass } from "@/components/ui";
 import { useAuth } from "@/features/authentication/AuthContext";
 
 import { EmployeeDirectory } from "./EmployeeDirectory";
@@ -23,7 +23,7 @@ export function EmployeesPage() {
         }
       />
       {canInvite && (
-        <div role="tablist" aria-label="Employee views" className="mb-4 flex gap-1 border-b border-slate-200">
+        <div role="tablist" aria-label="Employee views" className={tabListClass}>
           {(["employees", "invitations"] as const).map((name) => (
             <button
               key={name}
@@ -33,7 +33,7 @@ export function EmployeesPage() {
               aria-selected={tab === name}
               aria-controls={`panel-${name}`}
               onClick={() => setTab(name)}
-              className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium ${tab === name ? "border-brand-600 text-brand-700" : "border-transparent text-slate-500 hover:text-slate-800"}`}
+              className={tabClass(tab === name)}
             >
               {name === "employees" ? "Directory" : "Invitations"}
             </button>
