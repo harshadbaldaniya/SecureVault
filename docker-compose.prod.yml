@@ -88,7 +88,7 @@ services:
         limits: { cpus: "1.0", memory: 768M, pids: 200 }
 
   redis:
-    image: redis:7-alpine
+    image: redis:8-alpine
     <<: *hardening
     # Throttle counters, the cache and the Channels layer live here: nothing durable and no secrets. volatile-lru only
     # ever evicts keys that already expire, so memory pressure cannot silently drop a counter that has no TTL.
