@@ -24,7 +24,11 @@ compose=(docker compose -p "$PROJECT" --env-file "$ENV_FILE" -f docker-compose.p
 pass=0
 fail=0
 ok() { printf '  PASS  %s\n' "$1"; pass=$((pass + 1)); }
-bad() { printf '  FAIL  %s\n' "$1"; fail=$((fail + 1)); }
+bad() { # also an annotation on GitHub Actions, which stays readable without log access
+  printf '  FAIL  %s\n' "$1"
+  [ -n "${GITHUB_ACTIONS:-}" ] && printf '::error title=smoke check failed::%s\n' "$1"
+  fail=$((fail + 1))
+}
 t() { # t "description" predicate args...   (predicate is any command; success = pass)
   local what="$1"
   shift
@@ -56,6 +60,13 @@ cleanup() {
 trap cleanup EXIT
 
 # ------------------------------------------------------------------------------------------------ start
+section "Preflight"
+if ! node -e 'process.exit(typeof WebSocket === "function" ? 0 : 1)'; then
+  echo "Node 22 or newer is required (global WebSocket); found $(node --version 2>&1)"
+  [ -n "${GITHUB_ACTIONS:-}" ] && echo "::error title=smoke preflight::Node 22 or newer is required; found $(node --version 2>&1)"
+  exit 1
+fi
+
 section "Starting the stack with generated secrets"
 SUPER_PW="$(rand 32)"
 OWNER_PW="$(rand 32)"
