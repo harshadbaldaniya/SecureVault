@@ -59,7 +59,7 @@ x-app-db: &app-db
 
 services:
   db:
-    image: postgres:16-alpine
+    image: postgres:18-alpine
     <<: *hardening
     read_only: false # the postgres image writes to its data directory and /run
     environment:
