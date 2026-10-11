@@ -78,6 +78,10 @@ E2E_BASE_URL=https://localhost:18443 E2E_ADMIN_EMAIL=e2e.admin@example.test E2E_
 The test drives the installed Edge or Chrome (`E2E_BROWSER` to override) with `playwright-core`, so no browser is downloaded. It fails on any
 console error or CSP violation.
 
+`npm run test:layout` (same variables; works against the Vite dev server at `http://localhost:5173` too) checks the app shell in a real
+browser: the window never scrolls, the sidebar does not move when the page scrolls, the navigation scrolls by itself in a short window,
+the phone drawer scrolls by itself, a new page starts at the top, and nothing overflows sideways. Set `E2E_SHOTS=dir` to save screenshots.
+
 ## Load-test scenarios and method
 
 The master requirements ask for documented scenarios and measured response times and resource use *before* claiming scalability.

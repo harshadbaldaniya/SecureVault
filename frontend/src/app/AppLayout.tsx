@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { Suspense, useState } from "react";
-import { Link, NavLink, Outlet } from "react-router-dom";
+import { Suspense, useEffect, useRef, useState } from "react";
+import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 
 import { Alert, Button, PageLoader } from "@/components/ui";
 import { useAuth } from "@/features/authentication/AuthContext";
@@ -58,10 +58,18 @@ function LockdownScreen({ onSignOut }: { onSignOut: () => void }) {
 export function AppLayout() {
   const { user, logout, can } = useAuth();
   const [open, setOpen] = useState(false);
+  const mainRef = useRef<HTMLElement>(null);
+  const { pathname } = useLocation();
   const signedIn = Boolean(user);
   const device = useDeviceRegistration(signedIn);
   const policy = useQuery({ queryKey: ["policy"], queryFn: () => api.get<SecurityPolicy>("/policy/"), enabled: signedIn });
   const { toast, dismissToast } = useRealtime(signedIn);
+
+  // The page content scrolls inside <main>, not the window, so a new page must start at the top explicitly.
+  useEffect(() => {
+    if (mainRef.current) mainRef.current.scrollTop = 0;
+  }, [pathname]);
+
   if (!user) return null;
 
   const isLockdownManager = can("lockdown.manage");
@@ -70,13 +78,17 @@ export function AppLayout() {
   const links = NAV.filter((item) => !item.permission || can(item.permission));
   const untrustedDevice = policy.data?.require_device_trust && device.data && device.data.trust_state !== "TRUSTED";
 
+  // App shell: exactly one viewport tall, so the window never scrolls. The sidebar navigation and <main> are the only
+  // scroll containers (min-h-0 / min-w-0 let flex children shrink instead of stretching the shell). The shell and <main>
+  // are also `relative`: absolutely positioned content (e.g. Tailwind's sr-only table captions) would otherwise take the
+  // page as its containing block, escape the overflow clipping and stretch the document.
   return (
-    <div className="min-h-screen lg:flex">
+    <div className="relative flex h-dvh flex-col overflow-hidden lg:flex-row">
       <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded focus:bg-white focus:px-3 focus:py-2">
         Skip to content
       </a>
 
-      <header className="flex items-center justify-between bg-slate-900 px-4 py-3 text-white lg:hidden">
+      <header className="flex shrink-0 items-center justify-between bg-slate-900 px-4 py-3 text-white lg:hidden">
         <span className="font-bold">
           Secure<span className="text-blue-400">Vault</span>
         </span>
@@ -85,11 +97,11 @@ export function AppLayout() {
         </button>
       </header>
 
-      <aside id="sidebar" className={`${open ? "block" : "hidden"} bg-slate-900 text-slate-200 lg:flex lg:min-h-screen lg:w-64 lg:shrink-0 lg:flex-col`}>
-        <div className="hidden px-6 py-5 text-xl font-bold text-white lg:block">
+      <aside id="sidebar" className={`${open ? "flex" : "hidden"} max-h-[70dvh] shrink-0 flex-col overflow-y-auto overscroll-contain bg-slate-900 text-slate-200 lg:flex lg:max-h-none lg:min-h-0 lg:w-64 lg:overflow-visible`}>
+        <div className="hidden shrink-0 px-6 py-5 text-xl font-bold text-white lg:block">
           Secure<span className="text-blue-400">Vault</span>
         </div>
-        <nav aria-label="Main" className="flex-1 space-y-1 px-3 py-2">
+        <nav aria-label="Main" className="min-h-0 flex-1 space-y-1 overflow-y-auto overflow-x-hidden overscroll-contain px-3 py-2">
           {links.map((item) => (
             <NavLink
               key={item.to}
@@ -102,10 +114,10 @@ export function AppLayout() {
             </NavLink>
           ))}
         </nav>
-        <div className="px-3 pb-2">
+        <div className="shrink-0 px-3 pb-2">
           <NotificationBell />
         </div>
-        <div className="border-t border-white/10 p-4 text-sm">
+        <div className="shrink-0 border-t border-white/10 p-4 text-sm">
           <p className="truncate font-medium text-white">{user.full_name}</p>
           <p className="truncate text-xs text-slate-400">{ROLE_LABEL[user.role]}</p>
           <p className="truncate text-xs text-slate-400">{user.organization.name}</p>
@@ -115,7 +127,7 @@ export function AppLayout() {
         </div>
       </aside>
 
-      <main id="main" className="min-w-0 flex-1 p-4 sm:p-6 lg:p-8">
+      <main ref={mainRef} id="main" className="relative min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain p-4 sm:p-6 lg:p-8">
         <div className="mx-auto max-w-6xl space-y-4">
           {user.lockdown && (
             <Alert tone="error">

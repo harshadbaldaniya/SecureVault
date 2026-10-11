@@ -5,7 +5,8 @@
   "description": "Real-browser end-to-end checks against a running stack (see docs/testing-guide.md).",
   "type": "module",
   "scripts": {
-    "test": "node --test --test-timeout=240000 ./vault.e2e.mjs"
+    "test": "node --test --test-timeout=240000 ./vault.e2e.mjs",
+    "test:layout": "node --test --test-timeout=240000 ./layout.e2e.mjs"
   },
   "devDependencies": {
     "playwright-core": "1.56.1"
