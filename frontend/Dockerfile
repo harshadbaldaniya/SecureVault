@@ -14,7 +14,7 @@ COPY shared shared
 COPY frontend frontend
 RUN cd frontend && npm run build
 
-FROM nginxinc/nginx-unprivileged:1.28-alpine AS web
+FROM nginxinc/nginx-unprivileged:1.31-alpine AS web
 COPY infrastructure/nginx/conf.d/ /etc/nginx/conf.d/
 COPY infrastructure/nginx/snippets/ /etc/nginx/snippets/
 COPY --from=build /repo/frontend/dist /usr/share/nginx/html
