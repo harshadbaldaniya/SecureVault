@@ -114,8 +114,10 @@ section "Edge: TLS, redirects, headers"
 redirect="$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' --max-time 10 --resolve "localhost:${HTTP_PORT}:127.0.0.1" "http://localhost:${HTTP_PORT}/x")"
 t "plain HTTP redirects to HTTPS" has '^301 https://localhost' "$redirect"
 tls() { echo | openssl s_client -connect "127.0.0.1:${HTTPS_PORT}" -servername localhost "$1" 2>&1; }
-t "TLS 1.2 is accepted" has 'Protocol *: TLSv1.2' "$(tls -tls1_2)"
-t "TLS 1.3 is accepted" has 'Protocol *: TLSv1.3' "$(tls -tls1_3)"
+# "New, TLSv1.x, Cipher is ..." is printed by every OpenSSL version; the "Protocol :" session block is not (it is
+# missing on the CI runner's OpenSSL 3.0 when the client closes right after the handshake).
+t "TLS 1.2 is accepted" has 'New, TLSv1\.2, Cipher is' "$(tls -tls1_2)"
+t "TLS 1.3 is accepted" has 'New, TLSv1\.3, Cipher is' "$(tls -tls1_3)"
 
 index_headers="$(http -sI "$BASE/" | tr -d '\r')"
 t "HSTS is set" has '^strict-transport-security: max-age=31536000' "$index_headers"
