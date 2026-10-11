@@ -15,6 +15,7 @@ independent audit; where something was not tested, that is said.
 | Type check, lint, format, production build | clean (`tsc`, `ruff check`, `ruff format --check`, `vite build`) |
 | Migrations match the models | `makemigrations --check`: no changes |
 | OpenAPI schema | valid with `--fail-on-warn`; 99 operations; committed file matches the code (tested) |
+| Setup guide followed in a fresh `git clone` (own Compose project, remapped ports) | stack healthy, administrator created, frontend 93 tests + build, **436 backend tests passed** |
 | Production smoke test (`smoke_prod.sh`) | **87 passed**, 0 failed, from a cold start |
 | Real-browser end-to-end (Edge) | **9 passed**, 0 console errors or CSP violations |
 | Django deployment checklist (`check --deploy`) | no issues (test `test_django_deployment_checklist_has_no_warnings`) |
@@ -193,6 +194,8 @@ Reported because honest results include the defects:
 | Frontend suite | An intermittent failure under parallel load (lazy-loaded page vs 1 s wait) | Longer async query ceiling; 3 consecutive green runs |
 | Reading the dev container | Development emails could not be written (directory not writable by the unprivileged user) | Image creates the directory |
 | Drafting the docs | A claim that the worker healthcheck restarts a stalled worker (Docker does not) | Claim corrected |
+| Clean-clone drill | A remapped host database port in `.env` was inherited by the backend container, which then could not reach the database | Compose pins the in-network port; the drill was rerun end to end |
+| Clean-clone drill | A Python 3.15 pre-release on PATH could not install the dependencies | Setup guide says to use 3.13 |
 
 ## What was not tested
 

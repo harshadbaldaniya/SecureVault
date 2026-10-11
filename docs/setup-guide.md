@@ -9,7 +9,7 @@ For running SecureVault on your own machine to develop or evaluate it. For a pro
 |---|---|---|
 | Docker with Compose v2 | Docker 29 / Compose 5 | PostgreSQL, Redis and the backend run in containers |
 | Node.js | 22 | frontend dev server and tests |
-| Python | 3.13 | only to run the backend tests and tools on your machine (the backend itself runs in Docker) |
+| Python | 3.13 | only to run the backend tests and tools on your machine (the backend itself runs in Docker). Use 3.13: a pre-release such as 3.15 failed to install the dependencies |
 | Git | any recent | |
 
 Commands below are for **PowerShell** on Windows; the macOS/Linux equivalents are noted where they differ.
