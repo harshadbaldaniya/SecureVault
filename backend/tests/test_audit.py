@@ -82,7 +82,8 @@ def test_metadata_with_secret_like_keys_is_redacted(admin):
 
 def test_settings_about_secrets_are_not_redacted(admin):
     entry = audit.record(
-        AuditAction.POLICY_CHANGE, actor=admin,
+        AuditAction.POLICY_CHANGE,
+        actor=admin,
         metadata={"min_password_length": 16, "max_password_age_days": 90, "password_hint": "my dog"},
     )
     assert entry.metadata == {"min_password_length": 16, "max_password_age_days": 90, "password_hint": "[REDACTED]"}

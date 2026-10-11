@@ -31,8 +31,13 @@ from .serializers import (
     SecureNoteSerializer,
 )
 
-_PROBE_ACTIONS = {"reveal": AuditAction.REVEAL, "update": AuditAction.EDIT, "partial_update": AuditAction.EDIT,
-                  "destroy": AuditAction.DELETE, "restore": AuditAction.EDIT}
+_PROBE_ACTIONS = {
+    "reveal": AuditAction.REVEAL,
+    "update": AuditAction.EDIT,
+    "partial_update": AuditAction.EDIT,
+    "destroy": AuditAction.DELETE,
+    "restore": AuditAction.EDIT,
+}
 
 
 class CredentialFilter(django_filters.FilterSet):
@@ -112,8 +117,13 @@ class VaultItemViewSet(viewsets.ModelViewSet):
             return
         if exists:
             audit.record(
-                audit_action, actor=self.request.user, outcome=AuditOutcome.DENIED, target_type=self.audit_kind,
-                target_id=str(pk), reason="not_visible", fail_silently=True,
+                audit_action,
+                actor=self.request.user,
+                outcome=AuditOutcome.DENIED,
+                target_type=self.audit_kind,
+                target_id=str(pk),
+                reason="not_visible",
+                fail_silently=True,
             )
 
     def destroy(self, request, *args, **kwargs):

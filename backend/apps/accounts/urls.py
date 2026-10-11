@@ -20,8 +20,6 @@ urlpatterns = [
     path("auth/mfa/recovery-codes/", views.RecoveryCodesView.as_view(), name="auth-recovery-codes"),
     path("auth/password/change/", views.PasswordChangeView.as_view(), name="auth-password-change"),
     path("auth/password-reset/", views.PasswordResetRequestView.as_view(), name="auth-password-reset"),
-    path(
-        "auth/password-reset/confirm/", views.PasswordResetConfirmView.as_view(), name="auth-password-reset-confirm"
-    ),
+    path("auth/password-reset/confirm/", views.PasswordResetConfirmView.as_view(), name="auth-password-reset-confirm"),
     *router.urls,
 ]

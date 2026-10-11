@@ -41,9 +41,7 @@ class User(AbstractBaseUser, TimeStampedModel):
         SUSPENDED = "SUSPENDED", "Suspended"
         DEACTIVATED = "DEACTIVATED", "Deactivated"
 
-    organization = models.ForeignKey(
-        "organizations.Organization", on_delete=models.PROTECT, related_name="users"
-    )
+    organization = models.ForeignKey("organizations.Organization", on_delete=models.PROTECT, related_name="users")
     email = models.EmailField(max_length=254, unique=True)
     full_name = models.CharField(max_length=150)
     role = models.CharField(max_length=16, choices=Role.choices, default=Role.EMPLOYEE)
@@ -159,13 +157,9 @@ class Invitation(TimeStampedModel):
     Only the SHA-256 hash of the token is stored; the raw token is shown once.
     """
 
-    organization = models.ForeignKey(
-        "organizations.Organization", on_delete=models.PROTECT, related_name="invitations"
-    )
+    organization = models.ForeignKey("organizations.Organization", on_delete=models.PROTECT, related_name="invitations")
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="invitations")
-    invited_by = models.ForeignKey(
-        User, on_delete=models.SET_NULL, null=True, related_name="sent_invitations"
-    )
+    invited_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name="sent_invitations")
     token_hash = models.CharField(max_length=64, unique=True)
     expires_at = models.DateTimeField()
     accepted_at = models.DateTimeField(null=True, blank=True)

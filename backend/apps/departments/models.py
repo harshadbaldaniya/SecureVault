@@ -10,9 +10,7 @@ class Department(TimeStampedModel):
         ACTIVE = "ACTIVE", "Active"
         ARCHIVED = "ARCHIVED", "Archived"
 
-    organization = models.ForeignKey(
-        "organizations.Organization", on_delete=models.PROTECT, related_name="departments"
-    )
+    organization = models.ForeignKey("organizations.Organization", on_delete=models.PROTECT, related_name="departments")
     name = models.CharField(max_length=120)
     code = models.CharField(max_length=20)
     head = models.ForeignKey(

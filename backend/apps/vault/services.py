@@ -113,7 +113,10 @@ def create_credential(*, user, password: str, **fields) -> Credential:
     _apply_password(credential, password)
     credential.save()
     audit.record(
-        AuditAction.CREATE, actor=user, target=credential, target_type="credential",
+        AuditAction.CREATE,
+        actor=user,
+        target=credential,
+        target_type="credential",
         metadata={"secret_type": secret_type, "entropy_bits": credential.entropy_bits},
     )
     return credential
@@ -311,8 +314,13 @@ def reveal(*, user, item: VaultItem, purpose: str) -> str:
     except DecryptionError:
         logger.error("Vault decryption failed for %s %s", kind, item.pk)  # ids only, never contents
         audit.record(
-            audit_action, actor=user, outcome=AuditOutcome.FAILURE, target=item, target_type=kind,
-            reason="decryption_failed", fail_silently=True,
+            audit_action,
+            actor=user,
+            outcome=AuditOutcome.FAILURE,
+            target=item,
+            target_type=kind,
+            reason="decryption_failed",
+            fail_silently=True,
         )
         raise ServiceError(
             "This secret cannot be decrypted. Contact your administrator.", "decryption_failed", status_code=500
@@ -321,8 +329,13 @@ def reveal(*, user, item: VaultItem, purpose: str) -> str:
         raise ServiceError(VIEW_ONCE_USED, "view_once_consumed", status_code=410) from None
     except _AccessEnded:
         audit.record(
-            audit_action, actor=user, outcome=AuditOutcome.DENIED, target=item, target_type=kind,
-            reason="access_revoked", fail_silently=True,
+            audit_action,
+            actor=user,
+            outcome=AuditOutcome.DENIED,
+            target=item,
+            target_type=kind,
+            reason="access_revoked",
+            fail_silently=True,
         )
         raise exceptions.PermissionDenied("Your access to this credential has ended.", code="access_revoked") from None
     anomaly.evaluate_reveal_burst(user)  # best-effort detection; never blocks the reveal that just succeeded

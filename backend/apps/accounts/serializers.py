@@ -33,8 +33,17 @@ class MeSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = [
-            "id", "email", "full_name", "role", "status", "organization", "department", "permissions",
-            "mfa_enabled", "mfa_enrollment_required", "lockdown",
+            "id",
+            "email",
+            "full_name",
+            "role",
+            "status",
+            "organization",
+            "department",
+            "permissions",
+            "mfa_enabled",
+            "mfa_enrollment_required",
+            "lockdown",
         ]
 
     @extend_schema_field(
@@ -121,16 +130,22 @@ class AcceptInvitationSerializer(serializers.Serializer):
 
 
 class UserAdminSerializer(serializers.ModelSerializer):
-    department = OrgScopedPrimaryKeyRelatedField(
-        queryset=Department.objects.all(), allow_null=True, required=False
-    )
+    department = OrgScopedPrimaryKeyRelatedField(queryset=Department.objects.all(), allow_null=True, required=False)
     department_name = serializers.CharField(source="department.name", read_only=True, default=None)
 
     class Meta:
         model = User
         fields = [
-            "id", "email", "full_name", "role", "status", "department", "department_name",
-            "last_login", "created_at", "updated_at",
+            "id",
+            "email",
+            "full_name",
+            "role",
+            "status",
+            "department",
+            "department_name",
+            "last_login",
+            "created_at",
+            "updated_at",
         ]
         read_only_fields = ["id", "email", "last_login", "created_at", "updated_at"]
 
@@ -139,9 +154,7 @@ class InvitationCreateSerializer(serializers.Serializer):
     email = serializers.EmailField(max_length=254)
     full_name = serializers.CharField(max_length=150)
     role = serializers.ChoiceField(choices=User.Role.choices, default=User.Role.EMPLOYEE)
-    department = OrgScopedPrimaryKeyRelatedField(
-        queryset=Department.objects.all(), allow_null=True, required=False
-    )
+    department = OrgScopedPrimaryKeyRelatedField(queryset=Department.objects.all(), allow_null=True, required=False)
 
 
 class InvitationSerializer(serializers.ModelSerializer):
@@ -154,8 +167,16 @@ class InvitationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Invitation
         fields = [
-            "id", "email", "full_name", "role", "state", "invited_by_name",
-            "expires_at", "accepted_at", "revoked_at", "created_at",
+            "id",
+            "email",
+            "full_name",
+            "role",
+            "state",
+            "invited_by_name",
+            "expires_at",
+            "accepted_at",
+            "revoked_at",
+            "created_at",
         ]
 
 

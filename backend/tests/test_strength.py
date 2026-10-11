@@ -45,8 +45,15 @@ def test_labels_follow_the_documented_thresholds(password, bits, label):
 @pytest.mark.parametrize(
     "bits,label",
     [
-        (0, "very_weak"), (27.9, "very_weak"), (28, "weak"), (35.9, "weak"), (36, "fair"),
-        (59.9, "fair"), (60, "strong"), (79.9, "strong"), (80, "very_strong"),
+        (0, "very_weak"),
+        (27.9, "very_weak"),
+        (28, "weak"),
+        (35.9, "weak"),
+        (36, "fair"),
+        (59.9, "fair"),
+        (60, "strong"),
+        (79.9, "strong"),
+        (80, "very_strong"),
     ],
 )
 def test_label_boundaries(bits, label):

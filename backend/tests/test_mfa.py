@@ -155,11 +155,13 @@ def test_pending_sign_in_expires(client_for, employee):
 def test_disable_requires_password_and_code(client_for, employee):
     client = client_for(employee)
     secret, _ = enrol(client)
-    bad = client.post("/api/v1/auth/mfa/totp/disable/", {"password": "wrong", "code": code_at(secret, 1)},
-                      format="json")
+    bad = client.post(
+        "/api/v1/auth/mfa/totp/disable/", {"password": "wrong", "code": code_at(secret, 1)}, format="json"
+    )
     assert bad.json()["error"]["code"] == "reauth_failed"
-    ok = client.post("/api/v1/auth/mfa/totp/disable/", {"password": PASSWORD, "code": code_at(secret, 1)},
-                     format="json")
+    ok = client.post(
+        "/api/v1/auth/mfa/totp/disable/", {"password": PASSWORD, "code": code_at(secret, 1)}, format="json"
+    )
     assert ok.status_code == 204
     assert not TOTPDevice.objects.filter(user=employee).exists()
 
@@ -170,8 +172,9 @@ def test_policy_blocks_disabling_mfa(client_for, employee):
     policy = policy_for(employee.organization)
     policy.require_mfa = True
     policy.save()
-    response = client.post("/api/v1/auth/mfa/totp/disable/", {"password": PASSWORD, "code": code_at(secret, 1)},
-                           format="json")
+    response = client.post(
+        "/api/v1/auth/mfa/totp/disable/", {"password": PASSWORD, "code": code_at(secret, 1)}, format="json"
+    )
     assert response.json()["error"]["code"] == "mfa_required_by_policy"
 
 

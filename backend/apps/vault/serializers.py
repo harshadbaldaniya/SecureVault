@@ -90,9 +90,30 @@ class CredentialSerializer(VaultItemSerializer):
     class Meta:
         model = Credential
         fields = [
-            "id", "title", "username", "service", "service_name", "secret_type", "category", "tags", "expires_at",
-            "password", "entropy_bits", "strength", "is_expired", "expires_soon", "password_age_days", "reuse_count",
-            "owner_name", "permissions", "access", "sharing", "requestable", "archived_at", "created_at", "updated_at",
+            "id",
+            "title",
+            "username",
+            "service",
+            "service_name",
+            "secret_type",
+            "category",
+            "tags",
+            "expires_at",
+            "password",
+            "entropy_bits",
+            "strength",
+            "is_expired",
+            "expires_soon",
+            "password_age_days",
+            "reuse_count",
+            "owner_name",
+            "permissions",
+            "access",
+            "sharing",
+            "requestable",
+            "archived_at",
+            "created_at",
+            "updated_at",
             "password_changed_at",
         ]
         read_only_fields = ["id", "entropy_bits", "archived_at", "created_at", "updated_at", "password_changed_at"]
@@ -164,8 +185,17 @@ class SecureNoteSerializer(VaultItemSerializer):
     class Meta:
         model = SecureNote
         fields = [
-            "id", "title", "category", "tags", "expires_at", "content", "owner_name", "permissions",
-            "archived_at", "created_at", "updated_at",
+            "id",
+            "title",
+            "category",
+            "tags",
+            "expires_at",
+            "content",
+            "owner_name",
+            "permissions",
+            "archived_at",
+            "created_at",
+            "updated_at",
         ]
         read_only_fields = ["id", "archived_at", "created_at", "updated_at"]
 

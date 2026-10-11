@@ -83,8 +83,13 @@ def complete_login(request, user: User, method: str | None) -> Response:
     anomaly.evaluate_login(user, ctx.ip_address if ctx else None)  # before this sign-in joins the history
     with transaction.atomic():
         login(request, user, backend="django.contrib.auth.backends.ModelBackend")  # rotates session + CSRF
-        audit.record(AuditAction.LOGIN, actor=user, target=user, target_type="user",
-                     metadata={"second_factor": method} if method else None)
+        audit.record(
+            AuditAction.LOGIN,
+            actor=user,
+            target=user,
+            target_type="user",
+            metadata={"second_factor": method} if method else None,
+        )
     return Response({"mfa_required": False, "user": MeSerializer(user).data})
 
 
@@ -325,7 +330,10 @@ class PasswordResetConfirmView(APIView):
 
 
 class UserViewSet(
-    OrgScopedQuerysetMixin, mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.UpdateModelMixin,
+    OrgScopedQuerysetMixin,
+    mixins.ListModelMixin,
+    mixins.RetrieveModelMixin,
+    mixins.UpdateModelMixin,
     viewsets.GenericViewSet,
 ):
     """Employee directory for admins. Users are created only through invitations."""

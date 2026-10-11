@@ -168,9 +168,7 @@ def revoke_invitation(invitation: Invitation) -> Invitation:
         raise ServiceError("Only pending invitations can be revoked.", "not_pending")
     invitation.revoked_at = timezone.now()
     invitation.save(update_fields=["revoked_at", "updated_at"])
-    audit.record(
-        AuditAction.REVOKE, target=invitation, target_type="invitation", target_label=invitation.user.email
-    )
+    audit.record(AuditAction.REVOKE, target=invitation, target_type="invitation", target_label=invitation.user.email)
     return invitation
 
 
@@ -187,11 +185,7 @@ def accept_invitation(*, raw_token: str, password: str) -> User:
         raise ServiceError(INVALID_INVITATION, "invalid_invitation") from None
 
     user = invitation.user
-    if (
-        invitation.state != "PENDING"
-        or user.status != User.Status.INVITED
-        or user.organization.status != "ACTIVE"
-    ):
+    if invitation.state != "PENDING" or user.status != User.Status.INVITED or user.organization.status != "ACTIVE":
         raise ServiceError(INVALID_INVITATION, "invalid_invitation")
 
     # Raised before anything is written, so a weak password does not consume the invitation.
@@ -239,8 +233,12 @@ def request_password_reset(email: str) -> None:
     )
     if user is None:
         audit.record(
-            AuditAction.PASSWORD_RESET_REQUEST, outcome="FAILURE", target_type="user",
-            target_label=email.strip().lower()[:254], reason="unknown_or_inactive", fail_silently=True,
+            AuditAction.PASSWORD_RESET_REQUEST,
+            outcome="FAILURE",
+            target_type="user",
+            target_label=email.strip().lower()[:254],
+            reason="unknown_or_inactive",
+            fail_silently=True,
         )
         return
     raw_token = _issue_reset_token(user, issued_by=None)
@@ -266,8 +264,13 @@ def issue_admin_reset_link(*, actor: User, user: User) -> str:
     if user.status != User.Status.ACTIVE:
         raise ServiceError("Only active users can reset their password.", "invalid_status")
     raw_token = _issue_reset_token(user, issued_by=actor)
-    audit.record(AuditAction.PASSWORD_RESET_REQUEST, actor=actor, target=user, target_type="user",
-                 metadata={"issued_by_admin": True})
+    audit.record(
+        AuditAction.PASSWORD_RESET_REQUEST,
+        actor=actor,
+        target=user,
+        target_type="user",
+        metadata={"issued_by_admin": True},
+    )
     return password_reset_url(raw_token)
 
 
@@ -292,8 +295,9 @@ def confirm_password_reset(*, raw_token: str, password: str) -> User:
     PasswordResetToken.objects.filter(user=user, used_at__isnull=True).update(used_at=timezone.now())
     killed = revoke_sessions([user])
     clear_login_failures(user.email)
-    audit.record(AuditAction.PASSWORD_RESET, actor=user, target=user, target_type="user",
-                 metadata={"sessions_revoked": killed})
+    audit.record(
+        AuditAction.PASSWORD_RESET, actor=user, target=user, target_type="user", metadata={"sessions_revoked": killed}
+    )
     return user
 
 
@@ -312,8 +316,13 @@ def change_password(request, *, current_password: str, new_password: str) -> Non
     forget_session(old_key)
     record_session(request, user)
     killed = revoke_sessions([user], keep_session_key=request.session.session_key)
-    audit.record(AuditAction.PASSWORD_CHANGE, actor=user, target=user, target_type="user",
-                 metadata={"other_sessions_revoked": killed})
+    audit.record(
+        AuditAction.PASSWORD_CHANGE,
+        actor=user,
+        target=user,
+        target_type="user",
+        metadata={"other_sessions_revoked": killed},
+    )
 
 
 def _validate_new_password(password: str, user: User) -> None:
@@ -352,13 +361,13 @@ def update_user(*, actor: User, user: User, changes: dict) -> User:
         if user.status == User.Status.INVITED and new_status != User.Status.DEACTIVATED:
             raise ServiceError("Invited users activate through their invitation link.", "invalid_status")
 
-    loses_admin = user.role == User.Role.ORG_ADMIN and user.status == User.Status.ACTIVE and (
-        new_role != User.Role.ORG_ADMIN or new_status != User.Status.ACTIVE
+    loses_admin = (
+        user.role == User.Role.ORG_ADMIN
+        and user.status == User.Status.ACTIVE
+        and (new_role != User.Role.ORG_ADMIN or new_status != User.Status.ACTIVE)
     )
     if loses_admin and not any(admin.pk != user.pk for admin in active_admins):
-        raise ServiceError(
-            "The organization must keep at least one active Organization Administrator.", "last_admin"
-        )
+        raise ServiceError("The organization must keep at least one active Organization Administrator.", "last_admin")
 
     was_active = user.status == User.Status.ACTIVE
     old_role, old_status = user.role, user.status
@@ -382,8 +391,13 @@ def update_user(*, actor: User, user: User, changes: dict) -> User:
         )
         revoked = revoke_received_grants(actor=actor, user=user, reason="account_deactivated")
         if revoked:
-            audit.record(AuditAction.REVOKE, actor=actor, target=user, target_type="user",
-                         metadata={"reason": "account_deactivated", "revoked_grants": revoked})
+            audit.record(
+                AuditAction.REVOKE,
+                actor=actor,
+                target=user,
+                target_type="user",
+                metadata={"reason": "account_deactivated", "revoked_grants": revoked},
+            )
     if was_active and new_status != User.Status.ACTIVE:
         # Same transaction as the status change: both commit together or neither does.
         revoke_sessions([user])

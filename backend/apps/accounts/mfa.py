@@ -158,8 +158,13 @@ def disable_totp(user: User, password: str, code: str) -> None:
 def regenerate_recovery_codes(user: User, password: str, code: str) -> list[str]:
     _reauthenticate(user, password, code)
     codes = _replace_recovery_codes(user)
-    audit.record(AuditAction.MFA_ENROLL, actor=user, target=user, target_type="user",
-                 metadata={"recovery_codes_regenerated": True})
+    audit.record(
+        AuditAction.MFA_ENROLL,
+        actor=user,
+        target=user,
+        target_type="user",
+        metadata={"recovery_codes_regenerated": True},
+    )
     return codes
 
 
@@ -171,5 +176,6 @@ def admin_reset_mfa(*, actor: User, user: User) -> None:
     TOTPDevice.objects.filter(user=user).delete()
     RecoveryCode.objects.filter(user=user).delete()
     killed = revoke_sessions([user])
-    audit.record(AuditAction.MFA_RESET, actor=actor, target=user, target_type="user",
-                 metadata={"sessions_revoked": killed})
+    audit.record(
+        AuditAction.MFA_RESET, actor=actor, target=user, target_type="user", metadata={"sessions_revoked": killed}
+    )

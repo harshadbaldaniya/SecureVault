@@ -7,7 +7,15 @@ class ServiceCatalogSerializer(serializers.ModelSerializer):
     class Meta:
         model = ServiceCatalog
         fields = [
-            "id", "name", "category", "base_url", "icon_url", "default_port", "status", "created_at", "updated_at",
+            "id",
+            "name",
+            "category",
+            "base_url",
+            "icon_url",
+            "default_port",
+            "status",
+            "created_at",
+            "updated_at",
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
 

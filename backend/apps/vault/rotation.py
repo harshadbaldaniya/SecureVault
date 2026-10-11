@@ -45,8 +45,11 @@ def rewrap_data_keys() -> int:
             locked.kek_version = encryption._kek_version_of(locked.wrapped_key)
             locked.save(update_fields=["wrapped_key", "kek_version", "updated_at"])
             audit.record(
-                AuditAction.KEY_ROTATION, organization=locked.organization, target_type="organization_key",
-                target_id=str(locked.pk), metadata={"operation": "rewrap", "kek_version": locked.kek_version},
+                AuditAction.KEY_ROTATION,
+                organization=locked.organization,
+                target_type="organization_key",
+                target_id=str(locked.pk),
+                metadata={"operation": "rewrap", "kek_version": locked.kek_version},
             )
             rewrapped += 1
     return rewrapped
@@ -67,7 +70,10 @@ def rotate_data_key(organization: Organization) -> int:
         old.save(update_fields=["status", "retired_at", "updated_at"])
         new, _ = encryption._new_key_row(organization, old.version + 1, OrganizationKey.Status.ACTIVE)
         audit.record(
-            AuditAction.KEY_ROTATION, organization=organization, target_type="organization_key", target_id=str(new.pk),
+            AuditAction.KEY_ROTATION,
+            organization=organization,
+            target_type="organization_key",
+            target_id=str(new.pk),
             metadata={"operation": "rotate_data_key", "from_version": old.version, "to_version": new.version},
         )
 

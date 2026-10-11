@@ -13,9 +13,33 @@ import math
 
 COMMON_PASSWORDS = frozenset(
     {
-        "password", "passw0rd", "123456", "1234567", "12345678", "123456789", "1234567890", "qwerty", "qwertyuiop",
-        "letmein", "welcome", "admin", "administrator", "iloveyou", "monkey", "dragon", "abc123", "password1",
-        "111111", "sunshine", "princess", "football", "login", "secret", "master", "changeme", "default",
+        "password",
+        "passw0rd",
+        "123456",
+        "1234567",
+        "12345678",
+        "123456789",
+        "1234567890",
+        "qwerty",
+        "qwertyuiop",
+        "letmein",
+        "welcome",
+        "admin",
+        "administrator",
+        "iloveyou",
+        "monkey",
+        "dragon",
+        "abc123",
+        "password1",
+        "111111",
+        "sunshine",
+        "princess",
+        "football",
+        "login",
+        "secret",
+        "master",
+        "changeme",
+        "default",
     }
 )
 _COMMON_WORD_MIN_LENGTH = 5

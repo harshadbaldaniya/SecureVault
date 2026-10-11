@@ -100,9 +100,7 @@ def test_resend_invalidates_previous_link(client_for, admin):
 
 
 def test_duplicate_email_rejected(client_for, admin, employee):
-    response = client_for(admin).post(
-        INVITES, {"email": employee.email.upper(), "full_name": "Dup"}, format="json"
-    )
+    response = client_for(admin).post(INVITES, {"email": employee.email.upper(), "full_name": "Dup"}, format="json")
     assert response.status_code == 400
     assert response.json()["error"]["code"] == "email_taken"
 

@@ -28,16 +28,25 @@ class Perm:
 
 _SECURITY_OPERATIONS = frozenset(
     {
-        Perm.AUDIT_VIEW, Perm.SHARES_REVOKE_ANY, Perm.SHARES_VIEW_ALL, Perm.DEVICES_MANAGE, Perm.ALERTS_MANAGE,
-        Perm.LOCKDOWN_MANAGE, Perm.REPORTS_VIEW,
+        Perm.AUDIT_VIEW,
+        Perm.SHARES_REVOKE_ANY,
+        Perm.SHARES_VIEW_ALL,
+        Perm.DEVICES_MANAGE,
+        Perm.ALERTS_MANAGE,
+        Perm.LOCKDOWN_MANAGE,
+        Perm.REPORTS_VIEW,
     }
 )
 
 ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
     "ORG_ADMIN": frozenset(
         {
-            Perm.USERS_VIEW, Perm.USERS_MANAGE, Perm.INVITATIONS_MANAGE, Perm.DEPARTMENTS_MANAGE,
-            Perm.SERVICES_MANAGE, Perm.POLICIES_MANAGE,
+            Perm.USERS_VIEW,
+            Perm.USERS_MANAGE,
+            Perm.INVITATIONS_MANAGE,
+            Perm.DEPARTMENTS_MANAGE,
+            Perm.SERVICES_MANAGE,
+            Perm.POLICIES_MANAGE,
         }
     )
     | _SECURITY_OPERATIONS,

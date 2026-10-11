@@ -1,8 +1,8 @@
 """Vault key rotation. See apps/vault/rotation.py and docs/security-model.md for the full procedure.
 
-    manage.py rotate_vault_keys --rewrap-keks            # after adding a KEK version to SV_VAULT_KEK_KEYS
-    manage.py rotate_vault_keys --rotate-deks [--org X]  # replace data keys and re-encrypt records
-    manage.py rotate_vault_keys --reindex                # after adding a version to SV_BLIND_INDEX_KEYS
+manage.py rotate_vault_keys --rewrap-keks            # after adding a KEK version to SV_VAULT_KEK_KEYS
+manage.py rotate_vault_keys --rotate-deks [--org X]  # replace data keys and re-encrypt records
+manage.py rotate_vault_keys --reindex                # after adding a version to SV_BLIND_INDEX_KEYS
 """
 
 from django.core.management.base import BaseCommand, CommandError
@@ -35,5 +35,3 @@ class Command(BaseCommand):
                 self.stdout.write(f"{organization.slug}: re-encrypted {moved} record(s) under a new data key.")
         if reindex:
             self.stdout.write(f"Re-indexed {rotation.reindex_blind_indexes()} credential(s).")
-
-

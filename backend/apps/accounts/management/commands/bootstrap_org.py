@@ -53,7 +53,10 @@ class Command(BaseCommand):
             )
             policy_for(org)  # default security policy
             audit.record(
-                AuditAction.CREATE, organization=org, target=org, target_type="organization",
+                AuditAction.CREATE,
+                organization=org,
+                target=org,
+                target_type="organization",
                 metadata={"bootstrap": True, "admin_id": str(admin.pk)},
             )
         self.stdout.write(self.style.SUCCESS(f"Created organization '{org_slug}' with administrator {email.lower()}."))

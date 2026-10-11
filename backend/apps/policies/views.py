@@ -30,5 +30,9 @@ class SecurityPolicyView(generics.RetrieveUpdateAPIView):
                 if getattr(before, field) != getattr(policy, field)
             }
             if changes:
-                audit.record(AuditAction.POLICY_CHANGE, target=policy, target_type="security_policy",
-                             metadata={"changes": changes})
+                audit.record(
+                    AuditAction.POLICY_CHANGE,
+                    target=policy,
+                    target_type="security_policy",
+                    metadata={"changes": changes},
+                )
