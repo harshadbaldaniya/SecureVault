@@ -1,0 +1,30 @@
+# Secrets and local config
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+secrets/
+
+# Python
+__pycache__/
+*.py[cod]
+venv/
+.venv/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+staticfiles/
+media/
+
+# Node
+node_modules/
+dist/
+coverage/
+
+# Editors / OS
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store
