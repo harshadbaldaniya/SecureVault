@@ -20,6 +20,16 @@ def test_duplicate_code_rejected_within_org_but_allowed_across_orgs(client_for, 
     assert client_for(other_admin).post(DEPTS, {"name": "Eng", "code": "ENG"}, format="json").status_code == 201
 
 
+def test_page_size_is_client_adjustable_but_capped(client_for, admin, org):
+    Department.objects.bulk_create(
+        [Department(organization=org, name=f"Dept {i:03d}", code=f"D{i:03d}") for i in range(130)]
+    )
+    client = client_for(admin)
+    assert len(client.get(DEPTS).json()["results"]) == 25
+    assert len(client.get(DEPTS, {"page_size": 100}).json()["results"]) == 100
+    assert len(client.get(DEPTS, {"page_size": 100000}).json()["results"]) == 100
+
+
 def test_employee_count_counts_only_active_members(client_for, admin, make_user, org):
     dept = Department.objects.create(organization=org, name="Ops", code="OPS")
     make_user(department=dept)
