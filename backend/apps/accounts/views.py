@@ -16,6 +16,7 @@ from rest_framework.views import APIView
 from apps.audit import services as audit
 from apps.audit.models import AuditAction, AuditOutcome
 from core.exceptions import ServiceError
+from core.http import no_store
 from core.permissions import Perm, requires
 from core.tenancy import OrgScopedQuerysetMixin
 
@@ -45,12 +46,6 @@ MFA_PENDING_KEY = "mfa_pending"
 MFA_PENDING_SECONDS = 300
 MFA_MAX_ATTEMPTS = 5
 LOCKED_MESSAGE = "Too many failed sign-in attempts. Try again later."
-
-
-def no_store(response: Response) -> Response:
-    """For responses carrying one-time secrets (TOTP secret, recovery codes, reset links)."""
-    response["Cache-Control"] = "no-store"
-    return response
 
 
 def audit_login_failure(email: str, reason: str) -> None:

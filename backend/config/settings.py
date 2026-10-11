@@ -60,6 +60,7 @@ INSTALLED_APPS = [
     "apps.services_catalog",
     "apps.policies",
     "apps.audit",
+    "apps.vault",
 ]
 
 MIDDLEWARE = [
@@ -181,6 +182,7 @@ REST_FRAMEWORK = {
         "login": "10/min",
         "invitation_accept": "10/min",
         "password_reset": "5/min",
+        "reveal": "30/min",  # per user: slows bulk secret exfiltration through a hijacked session
     },
     # 0 = use REMOTE_ADDR and ignore X-Forwarded-For (which clients can forge).
     # Set to the number of trusted reverse proxies in production.
@@ -194,8 +196,12 @@ LOGIN_LOCKOUT_THRESHOLD = 5  # failed attempts per email ...
 LOGIN_LOCKOUT_SECONDS = 15 * 60  # ... within / locked for this window
 PASSWORD_RESET_TTL_MINUTES = 30
 
-# --- Encryption keys (see core/crypto.py). Each purpose has its own keyring. ---
+# --- Encryption keys (see core/crypto.py). Each purpose has its own keyring; they must not overlap. ---
 MFA_ENCRYPTION_KEYS = env("SV_MFA_ENCRYPTION_KEYS", required=True)
+VAULT_KEY_PROVIDER = env("SV_VAULT_KEY_PROVIDER", "apps.vault.keys.EnvKeyProvider")
+VAULT_KEK_KEYS = env("SV_VAULT_KEK_KEYS", required=True)  # wraps per-organization data keys
+VAULT_BLIND_INDEX_KEYS = env("SV_BLIND_INDEX_KEYS", required=True)  # HMAC key for reuse detection only
+VAULT_ARCHIVE_RETENTION_DAYS = 30  # archived items may be purged permanently after this long
 
 # --- Email (password reset). Dev default writes .eml files to backend/var/mail, never to logs. ---
 EMAIL_BACKEND = env("DJANGO_EMAIL_BACKEND", "django.core.mail.backends.filebased.EmailBackend")
