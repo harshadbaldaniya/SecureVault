@@ -98,7 +98,9 @@ def test_the_estimate_does_not_depend_on_python_hash_randomisation():
     results = set()
     for seed in ("1", "2", "3", "99"):
         env = {**os.environ, "PYTHONHASHSEED": seed}
-        out = subprocess.run([sys.executable, "-I", "-c", code], cwd=backend_dir, env=env, capture_output=True, text=True, check=True)  # noqa: S603
+        out = subprocess.run(  # noqa: S603 - fixed argv, no shell
+            [sys.executable, "-I", "-c", code], cwd=backend_dir, env=env, capture_output=True, text=True, check=True
+        )
         results.add(out.stdout.strip())
     assert len(results) == 1
 

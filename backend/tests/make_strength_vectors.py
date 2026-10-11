@@ -23,7 +23,10 @@ PASSWORDS = [
     "tab\tinside", "mixedCASEnoDigits", "ALLUPPER123456", "lower&symbols&only", "1234567890abcdefghij",
 ]
 
-vectors = [{"password": p, "bits": estimate_entropy_bits(p), "label": strength_label(estimate_entropy_bits(p))} for p in PASSWORDS]
+vectors = [
+    {"password": p, "bits": estimate_entropy_bits(p), "label": strength_label(estimate_entropy_bits(p))}
+    for p in PASSWORDS
+]
 target = Path(__file__).resolve().parents[2] / "shared" / "strength-vectors.json"
 target.parent.mkdir(parents=True, exist_ok=True)
 target.write_text(json.dumps(vectors, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
