@@ -7,7 +7,19 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
 # Initialise Django before importing anything that touches models.
 django_asgi_app = get_asgi_application()
 
-from channels.routing import ProtocolTypeRouter  # noqa: E402
+from channels.auth import AuthMiddlewareStack  # noqa: E402
+from channels.routing import ProtocolTypeRouter, URLRouter  # noqa: E402
+from channels.security.websocket import AllowedHostsOriginValidator  # noqa: E402
+from django.urls import path  # noqa: E402
 
-# WebSocket routing is added in Phase 4 (lockdown + notifications).
-application = ProtocolTypeRouter({"http": django_asgi_app})
+from apps.notifications.consumers import EventsConsumer  # noqa: E402
+
+application = ProtocolTypeRouter(
+    {
+        "http": django_asgi_app,
+        # Origin must match ALLOWED_HOSTS (blocks cross-site WebSocket hijacking); the session cookie authenticates.
+        "websocket": AllowedHostsOriginValidator(
+            AuthMiddlewareStack(URLRouter([path("ws/events/", EventsConsumer.as_asgi())]))
+        ),
+    }
+)

@@ -13,8 +13,10 @@ _counter = itertools.count()
 
 @pytest.fixture(autouse=True)
 def isolated_cache(settings):
-    """Tests use an in-memory cache so lockout/throttle counters never leak between tests or into dev Redis."""
+    """Tests use an in-memory cache and channel layer so counters and real-time events never leak between
+    tests or into the development Redis."""
     settings.CACHES = {"default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"}}
+    settings.CHANNEL_LAYERS = {"default": {"BACKEND": "channels.layers.InMemoryChannelLayer"}}
     cache.clear()
     yield
     cache.clear()

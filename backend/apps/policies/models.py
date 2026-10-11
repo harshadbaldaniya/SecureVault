@@ -39,6 +39,8 @@ class SecurityPolicy(TimeStampedModel):
     # Zero-trust
     require_device_trust = models.BooleanField(default=False)
     require_mfa = models.BooleanField(default=False)
+    # When on, an open HIGH-severity anomaly alert pauses that user's sensitive actions until reviewed.
+    block_on_high_risk = models.BooleanField(default=False)
 
     def __str__(self) -> str:
         return f"{self.name} ({self.organization_id})"

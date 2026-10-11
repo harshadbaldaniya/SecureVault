@@ -1,4 +1,4 @@
-from drf_spectacular.utils import extend_schema_field
+from drf_spectacular.utils import extend_schema_field, inline_serializer
 from rest_framework import serializers
 
 from apps.departments.models import Department
@@ -28,13 +28,32 @@ class MeSerializer(serializers.ModelSerializer):
     permissions = serializers.SerializerMethodField()
     mfa_enabled = serializers.SerializerMethodField()
     mfa_enrollment_required = serializers.SerializerMethodField()
+    lockdown = serializers.SerializerMethodField()
 
     class Meta:
         model = User
         fields = [
             "id", "email", "full_name", "role", "status", "organization", "department", "permissions",
-            "mfa_enabled", "mfa_enrollment_required",
+            "mfa_enabled", "mfa_enrollment_required", "lockdown",
         ]
+
+    @extend_schema_field(
+        inline_serializer(
+            "ActiveLockdown",
+            {
+                "id": serializers.UUIDField(),
+                "scope": serializers.CharField(),
+                "target_user_id": serializers.UUIDField(allow_null=True),
+                "triggered_at": serializers.DateTimeField(),
+                "is_active": serializers.BooleanField(),
+            },
+            allow_null=True,
+        )
+    )
+    def get_lockdown(self, user):
+        from apps.lockdown.services import applicable, payload  # local: lockdown builds on accounts
+
+        return payload(applicable(user))
 
     @extend_schema_field(serializers.ListField(child=serializers.CharField()))
     def get_permissions(self, user):

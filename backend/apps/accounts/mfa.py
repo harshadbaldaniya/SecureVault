@@ -135,6 +135,15 @@ def _reauthenticate(user: User, password: str, code: str) -> None:
         raise ServiceError("Password or verification code is incorrect.", "reauth_failed")
 
 
+def verify_reauthentication(user: User, password: str, code: str = "") -> None:
+    """Step-up check for high-risk operations: the password, plus a second factor if the user has MFA."""
+    ok = user.check_password(password or "")
+    if ok and has_confirmed_totp(user):
+        ok = verify_second_factor(user, code or "") is not None
+    if not ok:
+        raise ServiceError("Password or verification code is incorrect.", "reauth_failed")
+
+
 @transaction.atomic
 def disable_totp(user: User, password: str, code: str) -> None:
     if policy_for(user.organization).require_mfa:

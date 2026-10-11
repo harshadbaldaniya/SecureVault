@@ -91,6 +91,10 @@ class UserSession(models.Model):
 
     session_key = models.CharField(max_length=40, primary_key=True)
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="sessions")
+    # Linked when the browser identifies its device, so suspending/revoking a device signs it out.
+    device = models.ForeignKey(
+        "devices.Device", on_delete=models.SET_NULL, null=True, blank=True, related_name="sessions"
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     ip_address = models.GenericIPAddressField(null=True, blank=True)
     user_agent = models.CharField(max_length=300, blank=True)

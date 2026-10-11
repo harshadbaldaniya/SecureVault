@@ -20,18 +20,27 @@ class Perm:
     # Incident response: revoke any grant / inspect delegation trees. Never grants access to a secret.
     SHARES_REVOKE_ANY = "shares.revoke_any"
     SHARES_VIEW_ALL = "shares.view_all"
+    DEVICES_MANAGE = "devices.manage"
+    ALERTS_MANAGE = "alerts.manage"
+    LOCKDOWN_MANAGE = "lockdown.manage"
 
+
+_SECURITY_OPERATIONS = frozenset(
+    {
+        Perm.AUDIT_VIEW, Perm.SHARES_REVOKE_ANY, Perm.SHARES_VIEW_ALL, Perm.DEVICES_MANAGE, Perm.ALERTS_MANAGE,
+        Perm.LOCKDOWN_MANAGE,
+    }
+)
 
 ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
     "ORG_ADMIN": frozenset(
         {
             Perm.USERS_VIEW, Perm.USERS_MANAGE, Perm.INVITATIONS_MANAGE, Perm.DEPARTMENTS_MANAGE,
-            Perm.SERVICES_MANAGE, Perm.POLICIES_MANAGE, Perm.AUDIT_VIEW, Perm.SHARES_REVOKE_ANY, Perm.SHARES_VIEW_ALL,
+            Perm.SERVICES_MANAGE, Perm.POLICIES_MANAGE,
         }
-    ),
-    "SEC_ADMIN": frozenset(
-        {Perm.USERS_VIEW, Perm.POLICIES_MANAGE, Perm.AUDIT_VIEW, Perm.SHARES_REVOKE_ANY, Perm.SHARES_VIEW_ALL}
-    ),
+    )
+    | _SECURITY_OPERATIONS,
+    "SEC_ADMIN": frozenset({Perm.USERS_VIEW, Perm.POLICIES_MANAGE}) | _SECURITY_OPERATIONS,
     "EMPLOYEE": frozenset(),
 }
 
@@ -56,6 +65,12 @@ class IsActiveMember(BasePermission):
         user = request.user
         if not (user and user.is_authenticated and user.is_active and user.organization.status == "ACTIVE"):
             return False
+        if not getattr(view, "lockdown_exempt", False):
+            from apps.lockdown.services import LockdownActive, session_block  # local import: avoids app-loading cycle
+
+            # Sessions are terminated when a lockdown starts; this also refuses any session that slipped through.
+            if session_block(user) is not None:
+                raise LockdownActive("Your access is suspended by an emergency lockdown.")
         if not getattr(view, "mfa_exempt", False):
             from apps.accounts.mfa import enrollment_required  # local import: avoids app-loading cycle
 

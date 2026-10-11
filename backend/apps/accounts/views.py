@@ -15,6 +15,9 @@ from rest_framework.views import APIView
 
 from apps.audit import services as audit
 from apps.audit.models import AuditAction, AuditOutcome
+from apps.devices import anomaly
+from apps.lockdown import services as lockdown_services
+from core import request_context
 from core.exceptions import ServiceError
 from core.http import no_store
 from core.permissions import Perm, requires
@@ -64,8 +67,20 @@ def audit_login_failure(email: str, reason: str) -> None:
     )
 
 
+def refuse_if_locked_down(user: User) -> None:
+    """Called only after the password checked out, so it reveals nothing to someone guessing emails."""
+    if lockdown_services.session_block(user) is not None:
+        audit_login_failure(user.email, "lockdown_active")
+        raise lockdown_services.LockdownActive(
+            "SecureVault is in emergency lockdown. You cannot sign in until the security team lifts it."
+        )
+
+
 def complete_login(request, user: User, method: str | None) -> Response:
+    refuse_if_locked_down(user)  # re-checked here: a lockdown may have started during the MFA step
     services.clear_login_failures(user.email)
+    ctx = request_context.current()
+    anomaly.evaluate_login(user, ctx.ip_address if ctx else None)  # before this sign-in joins the history
     with transaction.atomic():
         login(request, user, backend="django.contrib.auth.backends.ModelBackend")  # rotates session + CSRF
         audit.record(AuditAction.LOGIN, actor=user, target=user, target_type="user",
@@ -116,6 +131,7 @@ class LoginView(APIView):
             # One message for unknown email, wrong password and inactive account (no enumeration).
             raise ServiceError("Invalid email or password.", "invalid_credentials")
 
+        refuse_if_locked_down(user)
         if mfa.has_confirmed_totp(user):
             request.session.cycle_key()  # fresh anonymous session to hold the pending state
             request.session[MFA_PENDING_KEY] = {
@@ -172,6 +188,7 @@ class MfaVerifyView(APIView):
 
 class LogoutView(APIView):
     mfa_exempt = True
+    lockdown_exempt = True  # signing out must always work
 
     @extend_schema(request=None, responses={204: None})
     def post(self, request):
@@ -183,6 +200,7 @@ class LogoutView(APIView):
 
 class MeView(APIView):
     mfa_exempt = True
+    lockdown_exempt = True  # lets a reconnecting client learn that a lockdown is active
 
     @extend_schema(responses={200: MeSerializer})
     def get(self, request):

@@ -20,6 +20,7 @@ from django.utils import timezone
 from apps.audit import services as audit
 from apps.audit.models import AuditAction
 from core.exceptions import ServiceError
+from core.realtime import close_user_sockets
 
 from .models import Invitation, PasswordResetToken, User, UserSession
 
@@ -76,11 +77,26 @@ def revoke_sessions(users, *, keep_session_key: str | None = None) -> int:
     sessions = UserSession.objects.filter(user__in=users)
     if keep_session_key:
         sessions = sessions.exclude(session_key=keep_session_key)
-    keys = list(sessions.values_list("session_key", flat=True))
+    return _delete_sessions(sessions)
+
+
+def revoke_sessions_for_device(device) -> int:
+    """Sign a device out everywhere (used when its trust is suspended or revoked)."""
+    return _delete_sessions(UserSession.objects.filter(device=device))
+
+
+def _delete_sessions(sessions) -> int:
+    rows = list(sessions.values_list("session_key", "user_id"))
+    keys = [key for key, _ in rows]
     with transaction.atomic():
         live = Session.objects.filter(session_key__in=keys, expire_date__gt=timezone.now()).count()
         Session.objects.filter(session_key__in=keys).delete()
         UserSession.objects.filter(session_key__in=keys).delete()
+        if rows:
+            # Real-time sockets were authenticated with these sessions: drop them; clients whose session
+            # survived simply reconnect, the others are refused at the handshake.
+            user_ids = [user_id for _, user_id in rows]
+            transaction.on_commit(lambda: close_user_sockets(user_ids))
     return live
 
 

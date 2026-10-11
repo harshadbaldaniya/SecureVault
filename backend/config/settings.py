@@ -64,6 +64,9 @@ INSTALLED_APPS = [
     "apps.notifications",
     "apps.sharing",
     "apps.access_requests",
+    # Order matters: each app registers its zero-trust gate check in ready(), in pipeline order.
+    "apps.devices",  # device trust (6), anomaly policy (7)
+    "apps.lockdown",  # lockdown (8)
 ]
 
 MIDDLEWARE = [

@@ -20,6 +20,7 @@ from rest_framework import exceptions
 
 from apps.audit import services as audit
 from apps.audit.models import AuditAction, AuditOutcome
+from apps.devices import anomaly
 from apps.policies.models import SecurityPolicy, policy_for
 from apps.sharing.locks import lock_credential_access
 from apps.sharing.models import Share
@@ -324,4 +325,5 @@ def reveal(*, user, item: VaultItem, purpose: str) -> str:
             reason="access_revoked", fail_silently=True,
         )
         raise exceptions.PermissionDenied("Your access to this credential has ended.", code="access_revoked") from None
+    anomaly.evaluate_reveal_burst(user)  # best-effort detection; never blocks the reveal that just succeeded
     return secret

@@ -16,4 +16,6 @@ urlpatterns = [
     path("api/v1/", include("apps.sharing.urls")),
     path("api/v1/", include("apps.access_requests.urls")),
     path("api/v1/", include("apps.notifications.urls")),
+    path("api/v1/", include("apps.devices.urls")),
+    path("api/v1/", include("apps.lockdown.urls")),
 ]
