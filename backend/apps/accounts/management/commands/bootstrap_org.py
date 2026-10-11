@@ -16,7 +16,10 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
 from apps.accounts.models import User
+from apps.audit import services as audit
+from apps.audit.models import AuditAction
 from apps.organizations.models import Organization
+from apps.policies.models import policy_for
 
 PASSWORD_ENV = "SV_BOOTSTRAP_PASSWORD"  # noqa: S105 - name of an env var, not a password
 
@@ -45,8 +48,13 @@ class Command(BaseCommand):
 
         with transaction.atomic():
             org = Organization.objects.create(name=org_name, slug=org_slug)
-            User.objects.create_user(
+            admin = User.objects.create_user(
                 email, org, password, full_name=full_name, role=User.Role.ORG_ADMIN, status=User.Status.ACTIVE
+            )
+            policy_for(org)  # default security policy
+            audit.record(
+                AuditAction.CREATE, organization=org, target=org, target_type="organization",
+                metadata={"bootstrap": True, "admin_id": str(admin.pk)},
             )
         self.stdout.write(self.style.SUCCESS(f"Created organization '{org_slug}' with administrator {email.lower()}."))
 

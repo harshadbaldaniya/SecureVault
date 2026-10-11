@@ -2,6 +2,7 @@ import pytest
 from django.core.management import CommandError, call_command
 
 from apps.accounts.models import User
+from apps.audit.models import AuditLog
 
 pytestmark = pytest.mark.django_db
 
@@ -16,6 +17,8 @@ def test_bootstrap_creates_org_and_active_admin(monkeypatch):
     assert admin.status == User.Status.ACTIVE
     assert admin.organization.slug == "acme-ltd"
     assert admin.check_password("Bootstrap-Passphrase-31")
+    assert admin.organization.security_policy.require_symbols is True
+    assert AuditLog.objects.filter(organization=admin.organization, target_type="organization").exists()
 
 
 def test_bootstrap_rejects_weak_password(monkeypatch):

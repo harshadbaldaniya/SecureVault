@@ -15,6 +15,8 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
 from django.utils import timezone
 
+from apps.audit import services as audit
+from apps.audit.models import AuditAction
 from core.exceptions import ServiceError
 
 from .models import Invitation, User, UserSession
@@ -117,7 +119,9 @@ def invite_user(*, inviter: User, email: str, full_name: str, role: str, departm
         department=department,
         status=User.Status.INVITED,
     )
-    return _issue_invitation(user, inviter)
+    result = _issue_invitation(user, inviter)
+    audit.record(AuditAction.INVITE, actor=inviter, target=user, target_type="user", metadata={"role": role})
+    return result
 
 
 @transaction.atomic
@@ -128,16 +132,21 @@ def resend_invitation(*, inviter: User, invitation: Invitation) -> tuple[Invitat
     Invitation.objects.filter(user=user, accepted_at__isnull=True, revoked_at__isnull=True).update(
         revoked_at=timezone.now()
     )
-    return _issue_invitation(user, inviter)
+    result = _issue_invitation(user, inviter)
+    audit.record(AuditAction.INVITE, actor=inviter, target=user, target_type="user", metadata={"resend": True})
+    return result
 
 
 @transaction.atomic
 def revoke_invitation(invitation: Invitation) -> Invitation:
-    invitation = Invitation.objects.select_for_update().get(pk=invitation.pk)
+    invitation = Invitation.objects.select_for_update(of=("self",)).select_related("user").get(pk=invitation.pk)
     if invitation.state != "PENDING":
         raise ServiceError("Only pending invitations can be revoked.", "not_pending")
     invitation.revoked_at = timezone.now()
     invitation.save(update_fields=["revoked_at", "updated_at"])
+    audit.record(
+        AuditAction.REVOKE, target=invitation, target_type="invitation", target_label=invitation.user.email
+    )
     return invitation
 
 
@@ -174,6 +183,7 @@ def accept_invitation(*, raw_token: str, password: str) -> User:
     user.save(update_fields=["password", "status", "updated_at"])
     invitation.accepted_at = timezone.now()
     invitation.save(update_fields=["accepted_at", "updated_at"])
+    audit.record(AuditAction.ACCOUNT_ACTIVATE, actor=user, target=user, target_type="user")
     return user
 
 
@@ -213,10 +223,18 @@ def update_user(*, actor: User, user: User, changes: dict) -> User:
         )
 
     was_active = user.status == User.Status.ACTIVE
+    old_role, old_status = user.role, user.status
     for field in ("full_name", "role", "status", "department"):
         if field in changes:
             setattr(user, field, changes[field])
     user.save()
+
+    metadata = {"changed": sorted(changes)}
+    if new_role != old_role:
+        metadata["role"] = {"from": old_role, "to": new_role}
+    if new_status != old_status:
+        metadata["status"] = {"from": old_status, "to": new_status}
+    audit.record(AuditAction.EDIT, actor=actor, target=user, target_type="user", metadata=metadata)
 
     if new_status == User.Status.DEACTIVATED:
         Invitation.objects.filter(user=user, accepted_at__isnull=True, revoked_at__isnull=True).update(

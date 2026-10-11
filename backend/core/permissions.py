@@ -13,13 +13,19 @@ class Perm:
     USERS_MANAGE = "users.manage"
     INVITATIONS_MANAGE = "invitations.manage"
     DEPARTMENTS_MANAGE = "departments.manage"
+    SERVICES_MANAGE = "services.manage"
+    POLICIES_MANAGE = "policies.manage"
+    AUDIT_VIEW = "audit.view"
 
 
 ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
     "ORG_ADMIN": frozenset(
-        {Perm.USERS_VIEW, Perm.USERS_MANAGE, Perm.INVITATIONS_MANAGE, Perm.DEPARTMENTS_MANAGE}
+        {
+            Perm.USERS_VIEW, Perm.USERS_MANAGE, Perm.INVITATIONS_MANAGE, Perm.DEPARTMENTS_MANAGE,
+            Perm.SERVICES_MANAGE, Perm.POLICIES_MANAGE, Perm.AUDIT_VIEW,
+        }
     ),
-    "SEC_ADMIN": frozenset({Perm.USERS_VIEW}),
+    "SEC_ADMIN": frozenset({Perm.USERS_VIEW, Perm.POLICIES_MANAGE, Perm.AUDIT_VIEW}),
     "EMPLOYEE": frozenset(),
 }
 

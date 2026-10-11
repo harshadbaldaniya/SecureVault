@@ -9,4 +9,7 @@ urlpatterns = [
     path("api/v1/docs/", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),
     path("api/v1/", include("apps.accounts.urls")),
     path("api/v1/", include("apps.departments.urls")),
+    path("api/v1/", include("apps.services_catalog.urls")),
+    path("api/v1/", include("apps.policies.urls")),
+    path("api/v1/", include("apps.audit.urls")),
 ]

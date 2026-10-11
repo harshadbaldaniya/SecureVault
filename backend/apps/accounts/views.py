@@ -1,4 +1,5 @@
 from django.contrib.auth import authenticate, login, logout
+from django.db import transaction
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_protect, ensure_csrf_cookie
 from django.views.decorators.debug import sensitive_post_parameters
@@ -10,6 +11,8 @@ from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
+from apps.audit import services as audit
+from apps.audit.models import AuditAction, AuditOutcome
 from core.exceptions import ServiceError
 from core.permissions import Perm, requires
 from core.tenancy import OrgScopedQuerysetMixin
@@ -58,6 +61,7 @@ class LoginView(APIView):
         password = serializer.validated_data["password"]
 
         if services.is_login_locked(email):
+            self._audit_failure(email, "locked")
             raise ServiceError(
                 "Too many failed sign-in attempts. Try again later.", "login_locked", status_code=429
             )
@@ -65,18 +69,39 @@ class LoginView(APIView):
         user = authenticate(request, username=email, password=password)
         if user is None or user.organization.status != "ACTIVE":
             services.record_login_failure(email)
+            self._audit_failure(email, "invalid_credentials")
             # One message for unknown email, wrong password and inactive account (no enumeration).
             raise ServiceError("Invalid email or password.", "invalid_credentials")
 
         services.clear_login_failures(email)
-        login(request, user)  # rotates the session key and CSRF token
+        with transaction.atomic():
+            login(request, user)  # rotates the session key and CSRF token
+            audit.record(AuditAction.LOGIN, actor=user, target=user, target_type="user")
         return Response(MeSerializer(user).data)
+
+    @staticmethod
+    def _audit_failure(email: str, reason: str) -> None:
+        # Attributed to the account's organization when the email exists, otherwise to the global chain.
+        # The attempted email is recorded as the target; the password never is.
+        known = User.objects.filter(email__iexact=email).select_related("organization").first()
+        audit.record(
+            AuditAction.LOGIN,
+            outcome=AuditOutcome.FAILURE,
+            organization=known.organization if known else None,
+            target_type="user",
+            target_id=str(known.pk) if known else "",
+            target_label=email.lower(),
+            reason=reason,
+            fail_silently=True,
+        )
 
 
 class LogoutView(APIView):
     @extend_schema(request=None, responses={204: None})
     def post(self, request):
-        logout(request)
+        with transaction.atomic():
+            audit.record(AuditAction.LOGOUT, target=request.user, target_type="user")
+            logout(request)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 

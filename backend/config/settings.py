@@ -57,9 +57,13 @@ INSTALLED_APPS = [
     "apps.organizations",
     "apps.accounts",
     "apps.departments",
+    "apps.services_catalog",
+    "apps.policies",
+    "apps.audit",
 ]
 
 MIDDLEWARE = [
+    "core.request_context.RequestContextMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -196,6 +200,7 @@ SPECTACULAR_SETTINGS = {
     "ENUM_NAME_OVERRIDES": {
         "UserStatusEnum": "apps.accounts.models.User.Status",
         "DepartmentStatusEnum": "apps.departments.models.Department.Status",
+        "ServiceStatusEnum": "apps.services_catalog.models.ServiceCatalog.Status",
     },
 }
 

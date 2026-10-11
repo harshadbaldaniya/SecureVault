@@ -1,6 +1,7 @@
 from django.db.models import Count, Q
 from rest_framework import viewsets
 
+from apps.audit.mixins import AuditedModelViewSetMixin
 from core.permissions import Perm, requires
 from core.tenancy import OrgScopedQuerysetMixin
 
@@ -8,12 +9,13 @@ from .models import Department
 from .serializers import DepartmentSerializer
 
 
-class DepartmentViewSet(OrgScopedQuerysetMixin, viewsets.ModelViewSet):
+class DepartmentViewSet(AuditedModelViewSetMixin, OrgScopedQuerysetMixin, viewsets.ModelViewSet):
     """Any active member can list departments; only ORG_ADMIN can change them."""
 
     queryset = Department.objects.all()
     serializer_class = DepartmentSerializer
     permission_classes = [requires(Perm.DEPARTMENTS_MANAGE, read_open=True)]
+    audit_target_type = "department"
     filterset_fields = ["status"]
     search_fields = ["name", "code"]
     ordering_fields = ["name", "code", "created_at"]
