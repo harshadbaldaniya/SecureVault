@@ -4,7 +4,7 @@
 #   prod  - runtime dependencies only, application code only (no tests, no dev tooling). Used by docker-compose.prod.yml.
 #   dev   - adds pytest/ruff and the tests so the suite can run inside the container. Used by docker-compose.yml.
 
-FROM python:3.13-slim AS base
+FROM python:3.14-slim AS base
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
