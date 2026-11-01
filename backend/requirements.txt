@@ -15,7 +15,7 @@ openpyxl==3.1.5
 # openpyxl uses defusedxml automatically when installed: hardens parsing of untrusted .xlsx XML.
 defusedxml==0.7.1
 # PDF report exports.
-reportlab==5.0.1
+reportlab==5.1.0
 PyOTP==2.10.0
 python-dotenv==1.2.4
 # Operational metrics at /api/v1/metrics/ (bearer-token protected, off unless SV_METRICS_TOKEN is set).
